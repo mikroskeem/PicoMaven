@@ -3,6 +3,7 @@ package eu.mikroskeem.picomaven;
 import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
 import eu.mikroskeem.picomaven.meta.Metadata;
 import okhttp3.OkHttpClient;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -38,6 +39,6 @@ public class ClientTest {
         URI uri2 = UrlUtils.buildArtifactMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata, UriUtilsTest.SAMPLE_DEPENDENCY2);
         ArtifactMetadata metadata2 = DataProcessor.getArtifactMetadata(client, uri2);
         URI uri3 = UrlUtils.buildArtifactJarURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata2, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        System.out.println(uri3);
+        Assertions.assertNotNull(uri3);
     }
 }
