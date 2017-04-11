@@ -12,7 +12,7 @@ import java.net.URI;
 /**
  * @author Mark Vainomaa
  */
-public class TestUriUtils {
+public class UriUtilsTest {
     public final static URI DEFAULT_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
     public final static URI DEFAULT_REPOSITORY2 = URI.create("https://repo.spongepowered.org/maven");
     public final static Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2");

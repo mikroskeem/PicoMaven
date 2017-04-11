@@ -11,7 +11,7 @@ import java.net.URI;
 /**
  * @author Mark Vainomaa
  */
-public class TestClient {
+public class ClientTest {
     private static File downloadDir;
     static {
         downloadDir = new File("./downloadTest" + Math.random());
@@ -33,11 +33,11 @@ public class TestClient {
     @Test
     public void testDataFetching() throws Exception {
         OkHttpClient client = new OkHttpClient();
-        URI uri = UrlUtils.buildGroupMetaURI(TestUriUtils.DEFAULT_REPOSITORY2, TestUriUtils.SAMPLE_DEPENDENCY2);
+        URI uri = UrlUtils.buildGroupMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, UriUtilsTest.SAMPLE_DEPENDENCY2);
         Metadata metadata = DataProcessor.getMetadata(client, uri);
-        URI uri2 = UrlUtils.buildArtifactMetaURI(TestUriUtils.DEFAULT_REPOSITORY2, metadata, TestUriUtils.SAMPLE_DEPENDENCY2);
+        URI uri2 = UrlUtils.buildArtifactMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata, UriUtilsTest.SAMPLE_DEPENDENCY2);
         ArtifactMetadata metadata2 = DataProcessor.getArtifactMetadata(client, uri2);
-        URI uri3 = UrlUtils.buildArtifactJarURI(TestUriUtils.DEFAULT_REPOSITORY2, metadata2, TestUriUtils.SAMPLE_DEPENDENCY2);
+        URI uri3 = UrlUtils.buildArtifactJarURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata2, UriUtilsTest.SAMPLE_DEPENDENCY2);
         System.out.println(uri3);
     }
 }
