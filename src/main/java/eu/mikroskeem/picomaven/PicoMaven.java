@@ -5,7 +5,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import okhttp3.OkHttpClient;
-import sun.plugin.dom.exception.InvalidStateException;
 
 import java.io.Closeable;
 import java.net.URI;
@@ -89,7 +88,7 @@ public class PicoMaven implements Closeable {
         }
 
         public PicoMaven build() {
-            if(downloadPath == null) throw new InvalidStateException("Download path cannot be unset!");
+            if(downloadPath == null) throw new IllegalStateException("Download path cannot be unset!");
             if(dependencies == null) dependencies = Collections.emptyList();
             if(repositories == null) repositories = Collections.emptyList();
             if(httpClient == null) httpClient = new OkHttpClient();
