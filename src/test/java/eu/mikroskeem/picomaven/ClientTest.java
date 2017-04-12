@@ -36,8 +36,10 @@ public class ClientTest {
         OkHttpClient client = new OkHttpClient();
         URI uri = UrlUtils.buildGroupMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, UriUtilsTest.SAMPLE_DEPENDENCY2);
         Metadata metadata = DataProcessor.getMetadata(client, uri);
+        Assertions.assertNotNull(metadata);
         URI uri2 = UrlUtils.buildArtifactMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata, UriUtilsTest.SAMPLE_DEPENDENCY2);
         ArtifactMetadata metadata2 = DataProcessor.getArtifactMetadata(client, uri2);
+        Assertions.assertNotNull(metadata2);
         URI uri3 = UrlUtils.buildArtifactJarURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata2, UriUtilsTest.SAMPLE_DEPENDENCY2);
         Assertions.assertNotNull(uri3);
     }
