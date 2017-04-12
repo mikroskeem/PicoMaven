@@ -1,7 +1,6 @@
 package eu.mikroskeem.picomaven;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
 import eu.mikroskeem.picomaven.meta.Metadata;
 import lombok.AccessLevel;
@@ -37,6 +36,7 @@ public class PicoMaven implements Closeable {
     private final OkHttpClient httpClient;
     private final ExecutorService executorService;
     private final DownloaderCallbacks downloaderCallbacks;
+    private final DebugLoggerImpl logger;
     private final boolean shouldCloseExecutorService;
 
     private final Queue<Dependency> downloadedDependencies = new ConcurrentLinkedQueue<>();
@@ -49,41 +49,42 @@ public class PicoMaven implements Closeable {
      * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
      */
     public List<Path> downloadAll() throws InterruptedException {
-        ObjectMapper objectMapper = new XmlMapper();
-
         /* Iterate through all dependencies */
         for(Dependency dependency : dependencyList) {
+            logger.debug("Trying to download dependency %s", dependency);
             Callable<Void> task = () -> {
                 Path theDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency);
+                logger.debug("%s path: %s", dependency, theDownloadPath);
                 if(!Files.exists(theDownloadPath)) {
                     /* Iterate through every repository */
                     try {
                         for (URI repositoryUri : repositoryUris) {
+                            logger.debug("Trying repository %s for %s", repositoryUri, dependency);
                             Metadata metadata = null;
                             ArtifactMetadata artifactMetadata = null;
                             URI groupMetaURI = UrlUtils.buildGroupMetaURI(repositoryUri, dependency);
+                            logger.debug("%s group meta URI: %s", dependency, groupMetaURI);
 
                             /* Try to parse group meta */
-                            Request request = new Request.Builder().url(HttpUrl.get(groupMetaURI)).build();
-                            try (Response groupMetaResponse = httpClient.newCall(request).execute()) {
-                                if (groupMetaResponse.isSuccessful() && (metadata = objectMapper.readValue(groupMetaResponse.body()
-                                        .byteStream(), Metadata.class)) != null) {
+                            try {
+                                metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
+                                if (metadata != null) {
                                     URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
-
-                                    /* Try to parse artifact metadata */
-                                    request = new Request.Builder().url(HttpUrl.get(artifactMetaURI)).build();
-                                    try (Response artifactMetaResponse = httpClient.newCall(request).execute()) {
-                                        if (artifactMetaResponse.isSuccessful()) {
-                                            artifactMetadata = objectMapper.readValue(artifactMetaResponse.body()
-                                                    .byteStream(), ArtifactMetadata.class);
-                                        }
-                                    }
+                                    logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
+                                    artifactMetadata = DataProcessor.getArtifactMetadata(httpClient, artifactMetaURI);
                                 }
+                            } catch (UnrecognizedPropertyException e) {
+                                /*
+                                 TODO: some metadata files start with tag <modelVersion>
+                                 */
+                                logger.debug("Failed to parse %s metadata: %s, proceeding with defaults",
+                                        dependency, e.getMessage());
                             }
 
                             /* Build artifact url */
                             URI artifactJarURI = UrlUtils.buildArtifactJarURI(repositoryUri, artifactMetadata, dependency);
-                            request = new Request.Builder().url(HttpUrl.get(artifactJarURI)).build();
+                            logger.debug("Downloading %s from %s", dependency, artifactJarURI);
+                            Request request = new Request.Builder().url(HttpUrl.get(artifactJarURI)).build();
                             try (Response artifactJarResponse = httpClient.newCall(request).execute()) {
                                 if (artifactJarResponse.isSuccessful()) {
                                     Path parentPath = theDownloadPath.getParent();
@@ -91,8 +92,11 @@ public class PicoMaven implements Closeable {
                                     Files.copy(artifactJarResponse.body().byteStream(), theDownloadPath,
                                             StandardCopyOption.REPLACE_EXISTING);
                                     /* Download success! */
+                                    logger.debug("%s download succeeded!", dependency);
                                     downloadedDependencies.add(dependency);
                                     break;
+                                } else {
+                                    logger.debug("%s download failed!", dependency);
                                 }
                             }
                         }
@@ -106,6 +110,7 @@ public class PicoMaven implements Closeable {
                         if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, e);
                     }
                 } else {
+                    logger.debug("%s is already downloaded", dependency);
                     downloadedDependencies.add(dependency);
                 }
                 return null; /* What? */
@@ -143,6 +148,7 @@ public class PicoMaven implements Closeable {
         private List<URI> repositories = null;
         private ExecutorService executorService = null;
         private DownloaderCallbacks downloaderCallbacks = null;
+        private DebugLoggerImpl loggerImpl = null;
         private boolean shouldCloseExecutorService = false;
 
         /**
@@ -212,6 +218,17 @@ public class PicoMaven implements Closeable {
         }
 
         /**
+         * Set {@link DebugLoggerImpl} implementing logger instance
+         *
+         * @param loggerImpl Logger instance
+         * @return this (for chaining)
+         */
+        public Builder withDebugLoggerImpl(DebugLoggerImpl loggerImpl) {
+            this.loggerImpl = loggerImpl;
+            return this;
+        }
+
+        /**
          * Set whether {@link ExecutorService} should be shut down or not after {@link PicoMaven} close.
          *
          * @param value Boolean
@@ -232,6 +249,7 @@ public class PicoMaven implements Closeable {
             if(dependencies == null) dependencies = Collections.emptyList();
             if(repositories == null) repositories = Collections.emptyList();
             if(httpClient == null) httpClient = new OkHttpClient();
+            if(loggerImpl == null) loggerImpl = DebugLoggerImpl.DummyDebugLogger.INSTANCE;
             if(executorService == null) {
                 executorService = Executors.newCachedThreadPool(new ThreadFactory() {
                     private final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
@@ -245,7 +263,7 @@ public class PicoMaven implements Closeable {
                 shouldCloseExecutorService = true;
             }
             return new PicoMaven(downloadPath, dependencies, repositories, httpClient,
-                    executorService, downloaderCallbacks, shouldCloseExecutorService);
+                    executorService, downloaderCallbacks, loggerImpl, shouldCloseExecutorService);
         }
     }
 }

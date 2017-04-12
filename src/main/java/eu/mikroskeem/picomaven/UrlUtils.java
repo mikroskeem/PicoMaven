@@ -57,12 +57,17 @@ class UrlUtils {
 
     /* Gets always latest version */
     private static String formatJarNameFromMeta(@NonNull Dependency dependency, @NonNull ArtifactMetadata metadata) {
-        return String.format(
-                "%s-%s-%s-%s.jar",
-                dependency.getArtifactId(),
-                dependency.getVersion().replaceAll("-SNAPSHOT", ""),
-                metadata.getVersioning().getSnapshot().getTimestamp(),
-                metadata.getVersioning().getSnapshot().getBuildNumber()
-        );
+        try {
+            return String.format(
+                    "%s-%s-%s-%s.jar",
+                    dependency.getArtifactId(),
+                    dependency.getVersion().replaceAll("-SNAPSHOT", ""),
+                    metadata.getVersioning().getSnapshot().getTimestamp(),
+                    metadata.getVersioning().getSnapshot().getBuildNumber()
+            );
+        } catch (NullPointerException e) {
+            /* Dear god, there are so many different formats of maven metadatas... */
+            return formatJarNameFromDependency(dependency);
+        }
     }
 }
