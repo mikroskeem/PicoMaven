@@ -3,7 +3,6 @@ package eu.mikroskeem.picomaven;
 import java.net.URI;
 
 /**
- *
  * @author Mark Vainomaa
  */
 public class Constants {

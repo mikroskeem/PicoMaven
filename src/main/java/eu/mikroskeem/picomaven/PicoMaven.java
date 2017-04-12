@@ -19,10 +19,7 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Queue;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -45,7 +42,13 @@ public class PicoMaven implements Closeable {
     private final Queue<Dependency> downloadedDependencies = new ConcurrentLinkedQueue<>();
     private final List<Callable<Void>> downloadTasks = new ArrayList<>();
 
-    public List<Path> downloadAll() throws ExecutionException, InterruptedException {
+    /**
+     * Download all dependencies from configured repositories
+     *
+     * @return List of {@link Path}s pointing to dependencies stored on filesystem
+     * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
+     */
+    public List<Path> downloadAll() throws InterruptedException {
         ObjectMapper objectMapper = new XmlMapper();
 
         /* Iterate through all dependencies */
@@ -118,6 +121,9 @@ public class PicoMaven implements Closeable {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Shuts down {@link ExecutorService}, if configured
+     */
     @Override
     @SneakyThrows(InterruptedException.class)
     public void close() {
@@ -127,6 +133,9 @@ public class PicoMaven implements Closeable {
         }
     }
 
+    /**
+     * {@link PicoMaven} builder
+     */
     public static class Builder {
         private Path downloadPath = null;
         private OkHttpClient httpClient = null;
@@ -136,41 +145,88 @@ public class PicoMaven implements Closeable {
         private DownloaderCallbacks downloaderCallbacks = null;
         private boolean shouldCloseExecutorService = false;
 
+        /**
+         * Set download path
+         *
+         * @param path Path (non-null)
+         * @return this (for chaining)
+         */
         public Builder withDownloadPath(@NonNull Path path) {
             this.downloadPath = path;
             return this;
         }
 
+        /**
+         * Set {@link OkHttpClient} instance what'll be used in this {@link PicoMaven} instance
+         *
+         * @param client {@link OkHttpClient} instance
+         * @return this (for chaining)
+         */
         public Builder withOkHttpClient(OkHttpClient client) {
             this.httpClient = client;
             return this;
         }
 
+        /**
+         * Set depencencies list, what to download
+         *
+         * @param dependencies List of {@link Dependency}
+         * @return this (for chaining)
+         */
         public Builder withDependencies(List<Dependency> dependencies) {
             this.dependencies = Collections.unmodifiableList(dependencies);
             return this;
         }
 
+        /**
+         * Set repositories list, where to look up dependencies
+         *
+         * @param repositories List of repository {@link URI}s
+         * @return this (for chaining)
+         */
         public Builder withRepositories(List<URI> repositories) {
             this.repositories = Collections.unmodifiableList(repositories);
             return this;
         }
 
+        /**
+         * Set {@link ExecutorService} what to use to launch downloader tasks
+         *
+         * @param executorService {@link ExecutorService} instance
+         * @return this (for chaining)
+         */
         public Builder withExecutorService(ExecutorService executorService) {
             this.executorService = executorService;
             return this;
         }
 
+        /**
+         * Set {@link DownloaderCallbacks} to get information about downloads
+         *
+         * @param downloaderCallbacks Implementation of {@link DownloaderCallbacks}
+         * @return this (for chaining)
+         */
         public Builder withDownloaderCallbacks(DownloaderCallbacks downloaderCallbacks){
             this.downloaderCallbacks = downloaderCallbacks;
             return this;
         }
 
+        /**
+         * Set whether {@link ExecutorService} should be shut down or not after {@link PicoMaven} close.
+         *
+         * @param value Boolean
+         * @return this (for chaining)
+         */
         public Builder shouldCloseExecutorService(boolean value) {
             this.shouldCloseExecutorService = value;
             return this;
         }
 
+        /**
+         * Build {@link PicoMaven} instance
+         *
+         * @return Instance of {@link PicoMaven}
+         */
         public PicoMaven build() {
             if(downloadPath == null) throw new IllegalStateException("Download path cannot be unset!");
             if(dependencies == null) dependencies = Collections.emptyList();
