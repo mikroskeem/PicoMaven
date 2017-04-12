@@ -8,6 +8,9 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URI;
+import java.nio.file.Path;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author Mark Vainomaa
@@ -15,19 +18,22 @@ import java.net.URI;
 public class ClientTest {
     private static File downloadDir;
     static {
-        downloadDir = new File("./downloadTest" + Math.random());
+        downloadDir = new File("./target/_downloadTest" + Math.random());
         downloadDir.mkdirs();
-        downloadDir.deleteOnExit();
     }
 
     @Test
-    public void testDefaultBuilder() {
+    public void testDefaultBuilder() throws Exception {
+        List<Dependency> dependencies = Arrays.asList(UriUtilsTest.SAMPLE_DEPENDENCY, UriUtilsTest.SAMPLE_DEPENDENCY2);
         try (
             PicoMaven picoMaven = new PicoMaven.Builder()
                 .withDownloadPath(downloadDir.toPath())
+                .withRepositories(Arrays.asList(Constants.MAVEN_CENTRAL_REPOSITORY, UriUtilsTest.DEFAULT_REPOSITORY2))
+                .withDependencies(dependencies)
                 .build()
         ) {
-            picoMaven.downloadAll();
+            List<Path> downloadedDeps = picoMaven.downloadAll();
+            Assertions.assertEquals(dependencies.size(), downloadedDeps.size());
         }
     }
 

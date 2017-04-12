@@ -13,7 +13,7 @@ import java.net.URI;
  * @author Mark Vainomaa
  */
 public class UriUtilsTest {
-    public final static URI DEFAULT_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+    public final static URI DEFAULT_REPOSITORY = Constants.MAVEN_CENTRAL_REPOSITORY;
     public final static URI DEFAULT_REPOSITORY2 = URI.create("https://repo.spongepowered.org/maven");
     public final static Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2");
     public final static Dependency SAMPLE_DEPENDENCY2 = new Dependency("org.spongepowered", "mixin", "0.6.8-SNAPSHOT");

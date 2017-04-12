@@ -5,6 +5,8 @@ import eu.mikroskeem.picomaven.meta.Metadata;
 import lombok.NonNull;
 
 import java.net.URI;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 class UrlUtils {
     static URI buildGroupMetaURI(@NonNull URI repositoryURI, @NonNull Dependency dependency) {
@@ -30,6 +32,15 @@ class UrlUtils {
             stringBuilder.append(formatJarNameFromDependency(dependency));
         }
         return URI.create(stringBuilder.toString());
+    }
+
+    static Path formatLocalPath(@NonNull Path parent, @NonNull Dependency dependency) {
+        return Paths.get(parent.toString(),
+                dependency.getGroupId().replace('.', '/'),
+                dependency.getArtifactId(),
+                dependency.getVersion(),
+                formatJarNameFromDependency(dependency)
+        );
     }
 
     private static String concatGroupArtifact(@NonNull Dependency dependency) {
