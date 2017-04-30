@@ -1,6 +1,7 @@
 package eu.mikroskeem.picomaven;
 
 import lombok.NonNull;
+import org.apache.maven.artifact.repository.metadata.Metadata;
 
 import java.net.URI;
 import java.nio.file.Path;
@@ -11,12 +12,12 @@ class UrlUtils {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(dependency) + "/maven-metadata.xml");
     }
     
-    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull ArtifactMetadata metadata, @NonNull Dependency dependency) {
+    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull Metadata metadata, @NonNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(metadata) +
                 "/" + dependency.getVersion() +  "/maven-metadata.xml");
     }
     
-    static URI buildArtifactJarURI(@NonNull URI repositoryURI, ArtifactMetadata artifactMetadata, @NonNull Dependency dependency) {
+    static URI buildArtifactJarURI(@NonNull URI repositoryURI, Metadata artifactMetadata, @NonNull Dependency dependency) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(repositoryURI.toString());
         stringBuilder.append('/');
@@ -45,7 +46,7 @@ class UrlUtils {
         return dependency.getGroupId().replace('.', '/') + "/" + dependency.getArtifactId();
     }
 
-    private static String concatGroupArtifact(@NonNull ArtifactMetadata metadata) {
+    private static String concatGroupArtifact(@NonNull Metadata metadata) {
         return metadata.getGroupId().replace('.', '/') + "/" + metadata.getArtifactId();
     }
 
@@ -54,7 +55,7 @@ class UrlUtils {
     }
 
     /* Gets always latest version */
-    private static String formatJarNameFromMeta(@NonNull Dependency dependency, @NonNull ArtifactMetadata metadata) {
+    private static String formatJarNameFromMeta(@NonNull Dependency dependency, @NonNull Metadata metadata) {
         try {
             return String.format(
                     "%s-%s-%s-%s.jar",

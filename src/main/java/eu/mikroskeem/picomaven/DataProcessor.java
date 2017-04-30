@@ -1,42 +1,32 @@
 package eu.mikroskeem.picomaven;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import lombok.NonNull;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
+import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Optional;
 
 /**
  * @author Mark Vainomaa
  */
 class DataProcessor {
-    static ArtifactMetadata getRepositoryMetadata(@NonNull OkHttpClient client, @NonNull URI groupMeta) throws IOException {
-        ObjectMapper objectMapper = new XmlMapper();
+    static Metadata getMetadata(@NonNull OkHttpClient client, @NonNull URI url) throws IOException {
         Request request = new Request.Builder()
-                .url(HttpUrl.get(groupMeta))
+                .url(HttpUrl.get(url))
                 .build();
         try(Response response = client.newCall(request).execute()) {
             if(response.isSuccessful()) {
-                return objectMapper.readValue(response.body().bytes(), ArtifactMetadata.class);
+                return new MetadataXpp3Reader().read(response.body().charStream());
             }
-        }
-        return null;
-    }
-
-    static ArtifactMetadata getArtifactMetadata(@NonNull OkHttpClient client, @NonNull URI artifactMeta) throws IOException {
-        ObjectMapper objectMapper = new XmlMapper();
-        Request request = new Request.Builder()
-                .url(HttpUrl.get(artifactMeta))
-                .build();
-        try(Response response = client.newCall(request).execute()) {
-            if(response.isSuccessful()) {
-                return objectMapper.readValue(response.body().bytes(), ArtifactMetadata.class);
-            }
+        } catch (XmlPullParserException e) {
+            throw new IOException(e);
         }
         return null;
     }

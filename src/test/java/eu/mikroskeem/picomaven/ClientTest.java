@@ -1,6 +1,7 @@
 package eu.mikroskeem.picomaven;
 
 import okhttp3.OkHttpClient;
+import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,10 +40,10 @@ public class ClientTest {
     public void testDataFetching() throws Exception {
         OkHttpClient client = new OkHttpClient();
         URI uri = UrlUtils.buildGroupMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        ArtifactMetadata metadata = DataProcessor.getRepositoryMetadata(client, uri);
+        Metadata metadata = DataProcessor.getMetadata(client, uri);
         Assertions.assertNotNull(metadata);
         URI uri2 = UrlUtils.buildArtifactMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        ArtifactMetadata metadata2 = DataProcessor.getArtifactMetadata(client, uri2);
+        Metadata metadata2 = DataProcessor.getMetadata(client, uri2);
         Assertions.assertNotNull(metadata2);
         URI uri3 = UrlUtils.buildArtifactJarURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata2, UriUtilsTest.SAMPLE_DEPENDENCY2);
         Assertions.assertNotNull(uri3);

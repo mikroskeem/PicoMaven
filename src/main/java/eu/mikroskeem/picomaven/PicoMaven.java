@@ -1,6 +1,5 @@
 package eu.mikroskeem.picomaven;
 
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -9,9 +8,12 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.Reader;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -58,25 +60,17 @@ public class PicoMaven implements Closeable {
                     try {
                         for (URI repositoryUri : repositoryUris) {
                             logger.debug("Trying repository %s for %s", repositoryUri, dependency);
-                            ArtifactMetadata metadata = null;
-                            ArtifactMetadata artifactMetadata = null;
+                            Metadata metadata = null;
+                            Metadata artifactMetadata = null;
                             URI groupMetaURI = UrlUtils.buildGroupMetaURI(repositoryUri, dependency);
                             logger.debug("%s group meta URI: %s", dependency, groupMetaURI);
 
-                            /* Try to parse group meta */
-                            try {
-                                metadata = DataProcessor.getRepositoryMetadata(httpClient, groupMetaURI);
-                                if (metadata != null) {
-                                    URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
-                                    logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
-                                    artifactMetadata = DataProcessor.getArtifactMetadata(httpClient, artifactMetaURI);
-                                }
-                            } catch (UnrecognizedPropertyException e) {
-                                /*
-                                 TODO: some metadata files start with tag <modelVersion>
-                                 */
-                                logger.debug("Failed to parse %s metadata: %s, proceeding with defaults",
-                                        dependency, e.getMessage());
+                            /* Try to parse repository meta */
+                            metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
+                            if (metadata != null) {
+                                URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
+                                logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
+                                artifactMetadata = DataProcessor.getMetadata(httpClient, artifactMetaURI);
                             }
 
                             /* Build artifact url */

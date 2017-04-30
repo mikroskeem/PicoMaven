@@ -1,10 +1,11 @@
 package eu.mikroskeem.picomaven;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
+import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.StringReader;
 import java.net.URI;
 
 /**
@@ -63,20 +64,17 @@ public class UriUtilsTest {
 
     @Test
     public void testMetadataXmlObjectMapping() throws Exception {
-        ObjectMapper objMapper = new XmlMapper();
-        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_METADATA, ArtifactMetadata.class);
+        Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_METADATA));
     }
 
     @Test
     public void testArtifactMetadataXmlObjectMapping() throws Exception {
-        ObjectMapper objMapper = new XmlMapper();
-        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_ARTIFACT_METADATA, ArtifactMetadata.class);
+        Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_ARTIFACT_METADATA));
     }
 
     @Test
     public void testArtifactMetadataUriBuilding() throws Exception {
-        ObjectMapper objMapper = new XmlMapper();
-        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_METADATA, ArtifactMetadata.class);
+        Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_METADATA));
 
         URI artifactMetaUri = UrlUtils.buildArtifactMetaURI(DEFAULT_REPOSITORY, metadata, SAMPLE_DEPENDENCY);
         Assertions.assertEquals("https://repo.maven.apache.org/maven2/org/ow2/asm/asm-all/5.2/maven-metadata.xml",
@@ -85,8 +83,7 @@ public class UriUtilsTest {
 
     @Test
     public void testArtifactJarUriBuilding() throws Exception {
-        ObjectMapper objMapper = new XmlMapper();
-        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_ARTIFACT_METADATA, ArtifactMetadata.class);
+        Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_ARTIFACT_METADATA));
         URI artifactUri = UrlUtils.buildArtifactJarURI(DEFAULT_REPOSITORY2, metadata, SAMPLE_DEPENDENCY2);
         String exp = "https://repo.spongepowered.org/maven/org/spongepowered/mixin/0.6.8-SNAPSHOT/mixin-0.6.8-20170320.130808-7.jar";
         Assertions.assertEquals(exp, artifactUri.toString());
