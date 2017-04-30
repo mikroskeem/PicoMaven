@@ -1,8 +1,6 @@
 package eu.mikroskeem.picomaven;
 
 import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
-import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
-import eu.mikroskeem.picomaven.meta.Metadata;
 import lombok.AccessLevel;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
@@ -60,14 +58,14 @@ public class PicoMaven implements Closeable {
                     try {
                         for (URI repositoryUri : repositoryUris) {
                             logger.debug("Trying repository %s for %s", repositoryUri, dependency);
-                            Metadata metadata = null;
+                            ArtifactMetadata metadata = null;
                             ArtifactMetadata artifactMetadata = null;
                             URI groupMetaURI = UrlUtils.buildGroupMetaURI(repositoryUri, dependency);
                             logger.debug("%s group meta URI: %s", dependency, groupMetaURI);
 
                             /* Try to parse group meta */
                             try {
-                                metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
+                                metadata = DataProcessor.getRepositoryMetadata(httpClient, groupMetaURI);
                                 if (metadata != null) {
                                     URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
                                     logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);

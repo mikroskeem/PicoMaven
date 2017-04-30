@@ -2,8 +2,6 @@ package eu.mikroskeem.picomaven;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
-import eu.mikroskeem.picomaven.meta.Metadata;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -66,7 +64,7 @@ public class UriUtilsTest {
     @Test
     public void testMetadataXmlObjectMapping() throws Exception {
         ObjectMapper objMapper = new XmlMapper();
-        Metadata metadata = objMapper.readValue(SAMPLE_METADATA, Metadata.class);
+        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_METADATA, ArtifactMetadata.class);
     }
 
     @Test
@@ -78,7 +76,7 @@ public class UriUtilsTest {
     @Test
     public void testArtifactMetadataUriBuilding() throws Exception {
         ObjectMapper objMapper = new XmlMapper();
-        Metadata metadata = objMapper.readValue(SAMPLE_METADATA, Metadata.class);
+        ArtifactMetadata metadata = objMapper.readValue(SAMPLE_METADATA, ArtifactMetadata.class);
 
         URI artifactMetaUri = UrlUtils.buildArtifactMetaURI(DEFAULT_REPOSITORY, metadata, SAMPLE_DEPENDENCY);
         Assertions.assertEquals("https://repo.maven.apache.org/maven2/org/ow2/asm/asm-all/5.2/maven-metadata.xml",

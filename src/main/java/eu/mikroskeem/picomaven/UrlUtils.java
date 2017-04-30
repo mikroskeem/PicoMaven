@@ -1,7 +1,5 @@
 package eu.mikroskeem.picomaven;
 
-import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
-import eu.mikroskeem.picomaven.meta.Metadata;
 import lombok.NonNull;
 
 import java.net.URI;
@@ -13,7 +11,7 @@ class UrlUtils {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(dependency) + "/maven-metadata.xml");
     }
     
-    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull Metadata metadata, @NonNull Dependency dependency) {
+    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull ArtifactMetadata metadata, @NonNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(metadata) +
                 "/" + dependency.getVersion() +  "/maven-metadata.xml");
     }
@@ -47,7 +45,7 @@ class UrlUtils {
         return dependency.getGroupId().replace('.', '/') + "/" + dependency.getArtifactId();
     }
 
-    private static String concatGroupArtifact(@NonNull Metadata metadata) {
+    private static String concatGroupArtifact(@NonNull ArtifactMetadata metadata) {
         return metadata.getGroupId().replace('.', '/') + "/" + metadata.getArtifactId();
     }
 

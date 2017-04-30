@@ -2,8 +2,6 @@ package eu.mikroskeem.picomaven;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.xml.XmlMapper;
-import eu.mikroskeem.picomaven.meta.ArtifactMetadata;
-import eu.mikroskeem.picomaven.meta.Metadata;
 import lombok.NonNull;
 import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
@@ -17,14 +15,14 @@ import java.net.URI;
  * @author Mark Vainomaa
  */
 class DataProcessor {
-    static Metadata getMetadata(@NonNull OkHttpClient client, @NonNull URI groupMeta) throws IOException {
+    static ArtifactMetadata getRepositoryMetadata(@NonNull OkHttpClient client, @NonNull URI groupMeta) throws IOException {
         ObjectMapper objectMapper = new XmlMapper();
         Request request = new Request.Builder()
                 .url(HttpUrl.get(groupMeta))
                 .build();
         try(Response response = client.newCall(request).execute()) {
             if(response.isSuccessful()) {
-                return objectMapper.readValue(response.body().bytes(), Metadata.class);
+                return objectMapper.readValue(response.body().bytes(), ArtifactMetadata.class);
             }
         }
         return null;
