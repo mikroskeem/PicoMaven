@@ -1,23 +1,28 @@
 package eu.mikroskeem.picomaven;
 
-import lombok.NonNull;
 import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 class UrlUtils {
-    static URI buildGroupMetaURI(@NonNull URI repositoryURI, @NonNull Dependency dependency) {
+    @Contract("null, null -> fail")
+    static URI buildGroupMetaURI(URI repositoryURI, Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(dependency) + "/maven-metadata.xml");
     }
-    
-    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull Metadata metadata, @NonNull Dependency dependency) {
+
+    @Contract("null, null, null -> fail")
+    static URI buildArtifactMetaURI(URI repositoryURI, Metadata metadata, Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(metadata) +
                 "/" + dependency.getVersion() +  "/maven-metadata.xml");
     }
-    
-    static URI buildArtifactJarURI(@NonNull URI repositoryURI, Metadata artifactMetadata, @NonNull Dependency dependency) {
+
+    @NotNull
+    @Contract("null, _, null -> fail")
+    static URI buildArtifactJarURI(URI repositoryURI, Metadata artifactMetadata, Dependency dependency) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(repositoryURI.toString());
         stringBuilder.append('/');
@@ -25,15 +30,14 @@ class UrlUtils {
         stringBuilder.append('/');
         stringBuilder.append(dependency.getVersion());
         stringBuilder.append('/');
-        if(artifactMetadata != null) {
-            stringBuilder.append(formatJarNameFromMeta(dependency, artifactMetadata));
-        } else {
-            stringBuilder.append(formatJarNameFromDependency(dependency));
-        }
+        stringBuilder.append(artifactMetadata != null ? formatJarNameFromMeta(dependency, artifactMetadata) :
+                formatJarNameFromDependency(dependency));
         return URI.create(stringBuilder.toString());
     }
 
-    static Path formatLocalPath(@NonNull Path parent, @NonNull Dependency dependency) {
+    @NotNull
+    @Contract("null, null -> fail")
+    static Path formatLocalPath(Path parent, Dependency dependency) {
         return Paths.get(parent.toString(),
                 dependency.getGroupId().replace('.', '/'),
                 dependency.getArtifactId(),
@@ -42,28 +46,43 @@ class UrlUtils {
         );
     }
 
-    private static String concatGroupArtifact(@NonNull Dependency dependency) {
+    @NotNull
+    @Contract("null -> fail")
+    private static String concatGroupArtifact(Dependency dependency) {
         return dependency.getGroupId().replace('.', '/') + "/" + dependency.getArtifactId();
     }
 
-    private static String concatGroupArtifact(@NonNull Metadata metadata) {
+    @NotNull
+    @Contract("null -> fail")
+    private static String concatGroupArtifact(Metadata metadata) {
         return metadata.getGroupId().replace('.', '/') + "/" + metadata.getArtifactId();
     }
 
-    private static String formatJarNameFromDependency(@NonNull Dependency dependency) {
-        return String.format("%s-%s.jar", dependency.getArtifactId(), dependency.getVersion());
+    @NotNull
+    @Contract("null -> fail")
+    private static String formatJarNameFromDependency(Dependency dependency) {
+        return dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar";
     }
 
     /* Gets always latest version */
-    private static String formatJarNameFromMeta(@NonNull Dependency dependency, @NonNull Metadata metadata) {
+    @NotNull
+    @Contract("null, null -> fail")
+    private static String formatJarNameFromMeta(Dependency dependency, Metadata metadata) {
+        /* Explicit NPE */
+        //noinspection ResultOfMethodCallIgnored
+        dependency.getClass();
+        //noinspection ResultOfMethodCallIgnored
+        metadata.getClass();
+
         try {
-            return String.format(
-                    "%s-%s-%s-%s.jar",
-                    dependency.getArtifactId(),
-                    dependency.getVersion().replaceAll("-SNAPSHOT", ""),
-                    metadata.getVersioning().getSnapshot().getTimestamp(),
+            return  dependency.getArtifactId()
+                            + "-" +
+                    dependency.getVersion().replaceAll("-SNAPSHOT", "")
+                            + "-" +
+                    metadata.getVersioning().getSnapshot().getTimestamp()
+                            + "-" +
                     metadata.getVersioning().getSnapshot().getBuildNumber()
-            );
+                            + ".jar";
         } catch (NullPointerException e) {
             /* Dear god, there are so many different formats of maven metadatas... */
             return formatJarNameFromDependency(dependency);

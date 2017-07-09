@@ -6,7 +6,7 @@
 
     <groupId>eu.mikroskeem</groupId>
     <artifactId>picomaven</artifactId>
-    <version>0.0.2-SNAPSHOT</version>
+    <version>0.0.3-SNAPSHOT</version>
     <packaging>jar</packaging>
 
     <name>PicoMaven</name>
@@ -137,16 +137,16 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>3.8.0</version>
+            <version>3.8.1</version>
             <scope>compile</scope>
         </dependency>
 
-        <!-- Lombok -->
+        <!-- JetBrains annotations -->
         <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.16.16</version>
-            <scope>provided</scope>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <version>15.0</version>
+            <scope>compile</scope>
         </dependency>
 
         <!--  Unit tests  -->
