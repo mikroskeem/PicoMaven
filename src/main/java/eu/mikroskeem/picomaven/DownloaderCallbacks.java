@@ -21,9 +21,23 @@ public interface DownloaderCallbacks {
      * Invoked when dependency download fails
      *
      * @param dependency Dependency object
+     * @param exception Exception
+     * @see Dependency
+     * @see Exception
+     */
+    void onFailure(Dependency dependency, Exception exception);
+
+    /**
+     * Invoked when dependency download fails
+     *
+     * @param dependency Dependency object
      * @param exception IOException
      * @see Dependency
      * @see IOException
+     * @deprecated Use {@link #onFailure(Dependency, Exception)} instead
      */
-    void onFailure(Dependency dependency, IOException exception);
+    @Deprecated
+    default void onFailure(Dependency dependency, IOException exception) {
+        onFailure(dependency, (Exception) exception);
+    }
 }

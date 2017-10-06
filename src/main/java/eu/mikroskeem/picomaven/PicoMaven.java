@@ -61,11 +61,17 @@ public class PicoMaven implements Closeable {
                             logger.debug("%s group meta URI: %s", dependency, groupMetaURI);
 
                             /* Try to parse repository meta */
-                            metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
-                            if (metadata != null) {
-                                URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
-                                logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
-                                artifactMetadata = DataProcessor.getMetadata(httpClient, artifactMetaURI);
+                            try {
+                                metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
+                                if (metadata != null) {
+                                    URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
+                                    logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
+                                    artifactMetadata = DataProcessor.getMetadata(httpClient, artifactMetaURI);
+                                }
+                            } catch (IOException e) {
+                                /* Skip repository */
+                                if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception)e);
+                                continue;
                             }
 
                             /* Build artifact url */
@@ -85,15 +91,17 @@ public class PicoMaven implements Closeable {
                                 } else {
                                     logger.debug("%s download failed!", dependency);
                                 }
+                            } catch (IOException e) {
+                                if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) e);
                             }
                         }
                         if(downloadedDependencies.contains(dependency)) {
                             if(downloaderCallbacks != null) downloaderCallbacks.onSuccess(dependency, theDownloadPath);
                         } else {
                             IOException exception = new IOException("Not found");
-                            if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, exception);
+                            if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) exception);
                         }
-                    } catch (IOException e) {
+                    } catch (Exception e) {
                         if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, e);
                     }
                 } else {
