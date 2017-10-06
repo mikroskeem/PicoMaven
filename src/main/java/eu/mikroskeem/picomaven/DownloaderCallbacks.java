@@ -25,7 +25,17 @@ public interface DownloaderCallbacks {
      * @see Dependency
      * @see Exception
      */
-    void onFailure(Dependency dependency, Exception exception);
+    default void onFailure(Dependency dependency, Exception exception) {
+        try {
+            java.lang.reflect.Method method = this.getClass().getMethod("onFailure", Dependency.class, IOException.class);
+            if(method.isDefault()) throw new AbstractMethodError();
+
+            /* Pass execution to #onFailure(Dependency, IOException) */
+            onFailure(dependency, new IOException(exception));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     /**
      * Invoked when dependency download fails
@@ -34,7 +44,7 @@ public interface DownloaderCallbacks {
      * @param exception IOException
      * @see Dependency
      * @see IOException
-     * @deprecated Use {@link #onFailure(Dependency, Exception)} instead
+     * @deprecated Use and override {@link #onFailure(Dependency, Exception)} instead
      */
     @Deprecated
     default void onFailure(Dependency dependency, IOException exception) {
