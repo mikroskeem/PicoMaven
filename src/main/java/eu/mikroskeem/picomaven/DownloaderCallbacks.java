@@ -25,10 +25,12 @@ public interface DownloaderCallbacks {
      * @see Dependency
      * @see Exception
      */
+    @SuppressWarnings("deprecation")
     default void onFailure(Dependency dependency, Exception exception) {
         try {
             java.lang.reflect.Method method = this.getClass().getMethod("onFailure", Dependency.class, IOException.class);
-            if(method.isDefault()) throw new AbstractMethodError();
+            if(method.isDefault()) throw new AbstractMethodError(
+                    "Either one of 'onEither' method must be implemented for DownloaderCallbacks");
 
             /* Pass execution to #onFailure(Dependency, IOException) */
             onFailure(dependency, new IOException(exception));
