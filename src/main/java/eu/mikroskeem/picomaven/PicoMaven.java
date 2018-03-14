@@ -68,6 +68,7 @@ public class PicoMaven implements Closeable {
      * @return List of {@link Path}s pointing to dependencies stored on filesystem
      * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
      */
+    @NotNull
     public List<Path> downloadAll() throws InterruptedException {
         /* Iterate through all dependencies */
         for(Dependency dependency : dependencyList) {

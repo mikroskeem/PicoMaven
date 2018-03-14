@@ -33,6 +33,7 @@ import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -43,8 +44,7 @@ import java.net.URI;
  */
 class DataProcessor {
     @Nullable
-    @Contract("null, null -> fail")
-    static Metadata getMetadata(OkHttpClient client, URI url) throws IOException {
+    static Metadata getMetadata(@NotNull OkHttpClient client, @NotNull URI url) throws IOException {
         Request request = new Request.Builder()
                 .url(HttpUrl.get(url))
                 .build();

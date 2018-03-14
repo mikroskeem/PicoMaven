@@ -28,26 +28,26 @@ package eu.mikroskeem.picomaven;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 class UrlUtils {
-    @Contract("null, null -> fail")
-    static URI buildGroupMetaURI(URI repositoryURI, Dependency dependency) {
+    @NotNull
+    static URI buildGroupMetaURI(@NotNull URI repositoryURI, @NotNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(dependency) + "/maven-metadata.xml");
     }
 
-    @Contract("null, null, null -> fail")
-    static URI buildArtifactMetaURI(URI repositoryURI, Metadata metadata, Dependency dependency) {
+    @NotNull
+    static URI buildArtifactMetaURI(@NotNull URI repositoryURI, @NotNull Metadata metadata, @NotNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(metadata) +
                 "/" + dependency.getVersion() +  "/maven-metadata.xml");
     }
 
     @NotNull
-    @Contract("null, _, null -> fail")
-    static URI buildArtifactJarURI(URI repositoryURI, Metadata artifactMetadata, Dependency dependency) {
+    static URI buildArtifactJarURI(@NotNull URI repositoryURI, @Nullable Metadata artifactMetadata, @NotNull Dependency dependency) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(repositoryURI.toString());
         stringBuilder.append('/');
@@ -61,8 +61,7 @@ class UrlUtils {
     }
 
     @NotNull
-    @Contract("null, null -> fail")
-    static Path formatLocalPath(Path parent, Dependency dependency) {
+    static Path formatLocalPath(@NotNull Path parent, @NotNull Dependency dependency) {
         return Paths.get(parent.toString(),
                 dependency.getGroupId().replace('.', '/'),
                 dependency.getArtifactId(),
@@ -72,33 +71,23 @@ class UrlUtils {
     }
 
     @NotNull
-    @Contract("null -> fail")
-    private static String concatGroupArtifact(Dependency dependency) {
+    private static String concatGroupArtifact(@NotNull Dependency dependency) {
         return dependency.getGroupId().replace('.', '/') + "/" + dependency.getArtifactId();
     }
 
     @NotNull
-    @Contract("null -> fail")
-    private static String concatGroupArtifact(Metadata metadata) {
+    private static String concatGroupArtifact(@NotNull Metadata metadata) {
         return metadata.getGroupId().replace('.', '/') + "/" + metadata.getArtifactId();
     }
 
     @NotNull
-    @Contract("null -> fail")
-    private static String formatJarNameFromDependency(Dependency dependency) {
+    private static String formatJarNameFromDependency(@NotNull Dependency dependency) {
         return dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar";
     }
 
     /* Gets always latest version */
     @NotNull
-    @Contract("null, null -> fail")
-    private static String formatJarNameFromMeta(Dependency dependency, Metadata metadata) {
-        /* Explicit NPE */
-        //noinspection ResultOfMethodCallIgnored
-        dependency.getClass();
-        //noinspection ResultOfMethodCallIgnored
-        metadata.getClass();
-
+    private static String formatJarNameFromMeta(@NotNull Dependency dependency, @NotNull Metadata metadata) {
         try {
             return  dependency.getArtifactId()
                             + "-" +

@@ -104,8 +104,7 @@ public class Dependency {
      * @return {@link Dependency}
      */
     @NotNull
-    @Contract("null -> fail")
-    public static Dependency fromGradle(String dependencyString) {
+    public static Dependency fromGradle(@NotNull String dependencyString) {
         String[] parts = dependencyString.split(":");
         if(parts.length != 3) throw new IllegalStateException("Invalid dependency string: " + dependencyString);
         return new Dependency(parts[0], parts[1], parts[2]);

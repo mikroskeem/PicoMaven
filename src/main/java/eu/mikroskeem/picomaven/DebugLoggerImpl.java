@@ -25,14 +25,16 @@
 
 package eu.mikroskeem.picomaven;
 
+import org.jetbrains.annotations.NotNull;
+
 /**
  * @author Mark Vainomaa
  */
 public interface DebugLoggerImpl {
-    void debug(String format, Object... contents);
+    void debug(@NotNull String format, @NotNull Object... contents);
 
     class DummyDebugLogger implements DebugLoggerImpl {
         final static DummyDebugLogger INSTANCE = new DummyDebugLogger();
-        @Override public void debug(String format, Object... contents) {}
+        @Override public void debug(@NotNull String format, @NotNull Object... contents) {}
     }
 }

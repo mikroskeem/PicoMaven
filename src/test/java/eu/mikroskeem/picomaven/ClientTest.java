@@ -55,12 +55,7 @@ public class ClientTest {
                 .withDownloadPath(downloadDir.toPath())
                 .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, UriUtilsTest.DEFAULT_REPOSITORY2))
                 .withDependencies(dependencies)
-                    .withDebugLoggerImpl(new DebugLoggerImpl() {
-                        @Override
-                        public void debug(String format, Object... contents) {
-                            System.err.format(format + "\n", contents);
-                        }
-                    })
+                    .withDebugLoggerImpl((format, contents) -> System.err.format(format + "\n", contents))
                 .build()
         ) {
             List<Path> downloadedDeps = picoMaven.downloadAll();

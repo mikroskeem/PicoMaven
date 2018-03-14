@@ -25,6 +25,7 @@
 
 package eu.mikroskeem.picomaven;
 
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -36,6 +37,8 @@ import java.nio.file.Path;
  */
 @SuppressWarnings("deprecation")
 public class DownloaderCallbacksTest {
+    private final static Dependency DUMMY_DEPENDENCY = new Dependency("foo", "bar", "0.1");
+
     /*
      * Leaves onFailure's both variants unimplemented
      */
@@ -43,17 +46,17 @@ public class DownloaderCallbacksTest {
     public void testBadImplementation() {
         class BadImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(Dependency dependency, Path dependencyPath) {
+            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
 
             }
         }
 
         DownloaderCallbacks callbacks = new BadImpl();
         Assertions.assertThrows(AbstractMethodError.class, () -> {
-            callbacks.onFailure(null, new Exception("foo"));
+            callbacks.onFailure(DUMMY_DEPENDENCY, new Exception("foo"));
         });
         Assertions.assertThrows(AbstractMethodError.class, () -> {
-            callbacks.onFailure(null, new IOException("bar"));
+            callbacks.onFailure(DUMMY_DEPENDENCY, new IOException("bar"));
         });
     }
 
@@ -64,19 +67,19 @@ public class DownloaderCallbacksTest {
     public void testDeprecatedImplementation() {
         class DeprecatedImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(Dependency dependency, Path dependencyPath) {
+            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
 
             }
 
             @Override
-            public void onFailure(Dependency dependency, IOException exception) {
+            public void onFailure(@NotNull Dependency dependency, @NotNull IOException exception) {
 
             }
         }
 
         DownloaderCallbacks callbacks = new DeprecatedImpl();
-        callbacks.onFailure(null, new Exception("foo"));
-        callbacks.onFailure(null, new IOException("bar"));
+        callbacks.onFailure(DUMMY_DEPENDENCY, new Exception("foo"));
+        callbacks.onFailure(DUMMY_DEPENDENCY, new IOException("bar"));
     }
 
     /*
@@ -86,18 +89,18 @@ public class DownloaderCallbacksTest {
     public void testGoodImplementation() {
         class GoodImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(Dependency dependency, Path dependencyPath) {
+            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
 
             }
 
             @Override
-            public void onFailure(Dependency dependency, Exception exception) {
+            public void onFailure(@NotNull Dependency dependency, @NotNull Exception exception) {
 
             }
         }
 
         DownloaderCallbacks callbacks = new GoodImpl();
-        callbacks.onFailure(null, new Exception("foo"));
-        callbacks.onFailure(null, new IOException("bar"));
+        callbacks.onFailure(DUMMY_DEPENDENCY, new Exception("foo"));
+        callbacks.onFailure(DUMMY_DEPENDENCY, new IOException("bar"));
     }
 }
