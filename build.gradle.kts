@@ -3,7 +3,7 @@ import groovy.util.Node
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
-    java
+    `java-library`
     id("net.minecrell.licenser") version "0.3"
     id("com.github.johnrengelman.shadow") version "2.0.2"
     `maven-publish`
@@ -28,8 +28,8 @@ repositories {
 }
 
 dependencies {
+    api("com.squareup.okhttp3:okhttp:$okHttpVersion")
     implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
-    implementation("com.squareup.okhttp3:okhttp:$okHttpVersion")
     implementation("org.jetbrains:annotations:$jbAnnotationsVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
@@ -40,8 +40,6 @@ license {
     header = rootProject.file("etc/HEADER")
     filter.include("**/*.java")
 }
-
-val jar by tasks.getting(Jar::class)
 
 val sourcesJar by tasks.creating(Jar::class) {
     classifier = "sources"
@@ -97,7 +95,7 @@ publishing {
         "maven"(MavenPublication::class) {
             artifactId = "picomaven"
 
-            artifact(jar)
+            from(components["java"])
             artifact(shadowJar)
             artifact(sourcesJar)
             artifact(javadocJar)
