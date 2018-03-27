@@ -1,23 +1,18 @@
-import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import groovy.util.Node
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     `java-library`
     id("net.minecrell.licenser") version "0.3"
-    id("com.github.johnrengelman.shadow") version "2.0.2"
     `maven-publish`
 }
 
 group = "eu.mikroskeem"
-version = "0.0.3-SNAPSHOT"
+version = "0.0.4-SNAPSHOT"
 
 val gradleWrapperVersion = "4.6"
 
-val okHttpVersion = "3.9.1"
 val jbAnnotationsVersion = "15.0"
-val mavenMetaVersion = "3.5.0"
-
 val junitVersion = "5.1.0"
 
 repositories {
@@ -28,8 +23,6 @@ repositories {
 }
 
 dependencies {
-    api("com.squareup.okhttp3:okhttp:$okHttpVersion")
-    implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
     implementation("org.jetbrains:annotations:$jbAnnotationsVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
@@ -52,23 +45,6 @@ val javadocJar by tasks.creating(Jar::class) {
     dependsOn(javadoc)
     classifier = "javadoc"
     from(javadoc.destinationDir)
-}
-
-
-val shadowJar by tasks.getting(ShadowJar::class) {
-    classifier = "shaded"
-
-    val targetPackage = "eu.mikroskeem.picomaven.shaded"
-    val relocations = listOf(
-            "org.apache.maven",
-            "org.codehaus.plexus",
-            "okhttp3",
-            "okio"
-    )
-
-    relocations.forEach {
-        relocate(it, "$targetPackage.$it")
-    }
 }
 
 val wrapper by tasks.getting(Wrapper::class) {
@@ -96,7 +72,6 @@ publishing {
             artifactId = "picomaven"
 
             from(components["java"])
-            artifact(shadowJar)
             artifact(sourcesJar)
             artifact(javadocJar)
 
@@ -153,7 +128,7 @@ publishing {
     }
 }
 
-tasks["build"].dependsOn("licenseFormat", shadowJar)
+tasks["build"].dependsOn("licenseFormat")
 
 fun XmlProvider.builder(builder: GroovyBuilderScope.() -> Unit) {
     (asNode().children().last() as Node).plus(delegateClosureOf<Any> {

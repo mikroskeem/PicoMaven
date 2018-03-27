@@ -23,25 +23,29 @@
  * THE SOFTWARE.
  */
 
-package eu.mikroskeem.picomaven;
+package eu.mikroskeem.picomaven.internal.metadata;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
+import java.util.List;
 
 /**
  * @author Mark Vainomaa
  */
-public class DependencyTest {
-    @Test
-    public void testDependencyFromString() {
-        String groupId = "com.zaxxer";
-        String artifactId = "HikariCP";
-        String version = "2.6.3";
+public class ArtifactMetadata {
+    private String modelVersion;
+    private String groupId;
+    private String artifactId;
+    private Version version;
 
-        Dependency dependency = Dependency.fromGradle(groupId + ':' + artifactId + ':' + version);
-        Assertions.assertEquals(groupId, dependency.getGroupId());
-        Assertions.assertEquals(artifactId, dependency.getArtifactId());
-        Assertions.assertEquals(version, dependency.getVersion());
+    public static class Version {
+        private String latest;
+        private String release;
+        private Snapshot snapshot;
+        private List<String> versions;
+        private Long lastUpdated;
+
+        public static class Snapshot {
+            private Integer buildNumber;
+            private Long timestamp;
+        }
     }
 }
