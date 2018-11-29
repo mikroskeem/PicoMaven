@@ -42,7 +42,9 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -51,7 +53,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 /**
  * PicoMaven
@@ -74,11 +75,11 @@ public class PicoMaven implements Closeable {
     /**
      * Download all dependencies from configured repositories
      *
-     * @return List of {@link Path}s pointing to dependencies stored on filesystem
+     * @return Map of {@link Dependency}s and their respective {@link Path}s pointing to dependencies stored on filesystem
      * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
      */
     @NonNull
-    public List<Path> downloadAll() throws InterruptedException {
+    public Map<Dependency, Path> downloadAllArtifacts() throws InterruptedException {
         /* Iterate through all dependencies */
         for(Dependency dependency : dependencyList) {
             logger.debug("Trying to download dependency %s", dependency);
@@ -150,10 +151,27 @@ public class PicoMaven implements Closeable {
         /* Execute them all */
         executorService.invokeAll(downloadTasks);
 
-        /* Convert to list */
-        return downloadedDependencies.stream()
-                .map(dep -> UrlUtils.formatLocalPath(downloadPath, dep))
-                .collect(Collectors.toList());
+        /* Build dependencies map */
+        Map<Dependency, Path> dependencies = new LinkedHashMap<>();
+        downloadedDependencies.forEach(dependency -> {
+            dependencies.put(dependency, UrlUtils.formatLocalPath(downloadPath, dependency));
+        });
+
+        return Collections.unmodifiableMap(dependencies);
+    }
+
+    /**
+     * Download all dependencies from configured repositories
+     *
+     * @return List of {@link Path}s pointing to dependencies stored on filesystem
+     * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
+     * @deprecated Use {@link #downloadAllArtifacts()} instead. This method will be removed in new version
+     */
+    @NonNull
+    @Deprecated
+    public List<Path> downloadAll() throws InterruptedException {
+        Map<Dependency, Path> dependencies = this.downloadAllArtifacts();
+        return Collections.unmodifiableList(new ArrayList<>(dependencies.values()));
     }
 
     /**
