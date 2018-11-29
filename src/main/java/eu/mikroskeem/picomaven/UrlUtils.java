@@ -26,28 +26,27 @@
 package eu.mikroskeem.picomaven;
 
 import org.apache.maven.artifact.repository.metadata.Metadata;
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 class UrlUtils {
-    @NotNull
-    static URI buildGroupMetaURI(@NotNull URI repositoryURI, @NotNull Dependency dependency) {
+    @NonNull
+    static URI buildGroupMetaURI(@NonNull URI repositoryURI, @NonNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(dependency) + "/maven-metadata.xml");
     }
 
-    @NotNull
-    static URI buildArtifactMetaURI(@NotNull URI repositoryURI, @NotNull Metadata metadata, @NotNull Dependency dependency) {
+    @NonNull
+    static URI buildArtifactMetaURI(@NonNull URI repositoryURI, @NonNull Metadata metadata, @NonNull Dependency dependency) {
         return URI.create(repositoryURI.toString() + "/" + concatGroupArtifact(metadata) +
                 "/" + dependency.getVersion() +  "/maven-metadata.xml");
     }
 
-    @NotNull
-    static URI buildArtifactJarURI(@NotNull URI repositoryURI, @Nullable Metadata artifactMetadata, @NotNull Dependency dependency) {
+    @NonNull
+    static URI buildArtifactJarURI(@NonNull URI repositoryURI, @Nullable Metadata artifactMetadata, @NonNull Dependency dependency) {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.append(repositoryURI.toString());
         stringBuilder.append('/');
@@ -60,8 +59,8 @@ class UrlUtils {
         return URI.create(stringBuilder.toString());
     }
 
-    @NotNull
-    static Path formatLocalPath(@NotNull Path parent, @NotNull Dependency dependency) {
+    @NonNull
+    static Path formatLocalPath(@NonNull Path parent, @NonNull Dependency dependency) {
         return Paths.get(parent.toString(),
                 dependency.getGroupId().replace('.', '/'),
                 dependency.getArtifactId(),
@@ -70,24 +69,24 @@ class UrlUtils {
         );
     }
 
-    @NotNull
-    private static String concatGroupArtifact(@NotNull Dependency dependency) {
+    @NonNull
+    private static String concatGroupArtifact(@NonNull Dependency dependency) {
         return dependency.getGroupId().replace('.', '/') + "/" + dependency.getArtifactId();
     }
 
-    @NotNull
-    private static String concatGroupArtifact(@NotNull Metadata metadata) {
+    @NonNull
+    private static String concatGroupArtifact(@NonNull Metadata metadata) {
         return metadata.getGroupId().replace('.', '/') + "/" + metadata.getArtifactId();
     }
 
-    @NotNull
-    private static String formatJarNameFromDependency(@NotNull Dependency dependency) {
+    @NonNull
+    private static String formatJarNameFromDependency(@NonNull Dependency dependency) {
         return dependency.getArtifactId() + "-" + dependency.getVersion() + ".jar";
     }
 
     /* Gets always latest version */
-    @NotNull
-    private static String formatJarNameFromMeta(@NotNull Dependency dependency, @NotNull Metadata metadata) {
+    @NonNull
+    private static String formatJarNameFromMeta(@NonNull Dependency dependency, @NonNull Metadata metadata) {
         try {
             return  dependency.getArtifactId()
                             + "-" +

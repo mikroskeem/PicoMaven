@@ -25,16 +25,16 @@
 
 package eu.mikroskeem.picomaven;
 
-import org.jetbrains.annotations.NotNull;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 /**
  * @author Mark Vainomaa
  */
 public interface DebugLoggerImpl {
-    void debug(@NotNull String format, @NotNull Object... contents);
+    void debug(@NonNull String format, @NonNull Object... contents);
 
     class DummyDebugLogger implements DebugLoggerImpl {
         final static DummyDebugLogger INSTANCE = new DummyDebugLogger();
-        @Override public void debug(@NotNull String format, @NotNull Object... contents) {}
+        @Override public void debug(@NonNull String format, @NonNull Object... contents) {}
     }
 }

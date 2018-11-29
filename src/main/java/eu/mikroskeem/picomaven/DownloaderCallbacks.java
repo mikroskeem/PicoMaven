@@ -25,7 +25,7 @@
 
 package eu.mikroskeem.picomaven;
 
-import org.jetbrains.annotations.NotNull;
+import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -42,7 +42,7 @@ public interface DownloaderCallbacks {
      * @see Dependency
      * @see Path
      */
-    void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath);
+    void onSuccess(@NonNull Dependency dependency, @NonNull Path dependencyPath);
 
     /**
      * Invoked when dependency download fails
@@ -53,7 +53,7 @@ public interface DownloaderCallbacks {
      * @see Exception
      */
     @SuppressWarnings("deprecation")
-    default void onFailure(@NotNull Dependency dependency, @NotNull Exception exception) {
+    default void onFailure(@NonNull Dependency dependency, @NonNull Exception exception) {
         try {
             java.lang.reflect.Method method = this.getClass().getMethod("onFailure", Dependency.class, IOException.class);
             if(method.isDefault()) throw new AbstractMethodError(
@@ -76,7 +76,7 @@ public interface DownloaderCallbacks {
      * @deprecated Use and override {@link #onFailure(Dependency, Exception)} instead
      */
     @Deprecated
-    default void onFailure(@NotNull Dependency dependency, @NotNull IOException exception) {
+    default void onFailure(@NonNull Dependency dependency, @NonNull IOException exception) {
         onFailure(dependency, (Exception) exception);
     }
 }

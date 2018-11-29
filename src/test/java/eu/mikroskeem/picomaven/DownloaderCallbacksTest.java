@@ -25,7 +25,7 @@
 
 package eu.mikroskeem.picomaven;
 
-import org.jetbrains.annotations.NotNull;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -46,7 +46,7 @@ public class DownloaderCallbacksTest {
     public void testBadImplementation() {
         class BadImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
+            public void onSuccess(@NonNull Dependency dependency, @NonNull Path dependencyPath) {
 
             }
         }
@@ -67,12 +67,12 @@ public class DownloaderCallbacksTest {
     public void testDeprecatedImplementation() {
         class DeprecatedImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
+            public void onSuccess(@NonNull Dependency dependency, @NonNull Path dependencyPath) {
 
             }
 
             @Override
-            public void onFailure(@NotNull Dependency dependency, @NotNull IOException exception) {
+            public void onFailure(@NonNull Dependency dependency, @NonNull IOException exception) {
 
             }
         }
@@ -89,12 +89,12 @@ public class DownloaderCallbacksTest {
     public void testGoodImplementation() {
         class GoodImpl implements DownloaderCallbacks {
             @Override
-            public void onSuccess(@NotNull Dependency dependency, @NotNull Path dependencyPath) {
+            public void onSuccess(@NonNull Dependency dependency, @NonNull Path dependencyPath) {
 
             }
 
             @Override
-            public void onFailure(@NotNull Dependency dependency, @NotNull Exception exception) {
+            public void onFailure(@NonNull Dependency dependency, @NonNull Exception exception) {
 
             }
         }

@@ -25,9 +25,8 @@
 
 package eu.mikroskeem.picomaven;
 
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.NotNull;
-
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.dataflow.qual.Pure;
 
 /**
  * Represents dependency
@@ -57,7 +56,7 @@ public class Dependency {
      * @param artifactId Dependency artifact id
      * @param version Dependency version
      */
-    public Dependency(@NotNull String groupId, @NotNull String artifactId, @NotNull String version) {
+    public Dependency(@NonNull String groupId, @NonNull String artifactId, @NonNull String version) {
         this.groupId = groupId;
         this.artifactId = artifactId;
         this.version = version;
@@ -68,8 +67,7 @@ public class Dependency {
      *
      * @return Dependency group id
      */
-    @NotNull
-    @Contract(pure = true)
+    @NonNull
     public String getGroupId() {
         return groupId;
     }
@@ -79,8 +77,8 @@ public class Dependency {
      *
      * @return Dependency artifact id
      */
-    @NotNull
-    @Contract(pure = true)
+    @NonNull
+    @Pure
     public String getArtifactId() {
         return artifactId;
     }
@@ -90,8 +88,8 @@ public class Dependency {
      *
      * @return Dependency version
      */
-    @NotNull
-    @Contract(pure = true)
+    @NonNull
+    @Pure
     public String getVersion() {
         return version;
     }
@@ -103,8 +101,8 @@ public class Dependency {
      * @param dependencyString Gradle dependency string
      * @return {@link Dependency}
      */
-    @NotNull
-    public static Dependency fromGradle(@NotNull String dependencyString) {
+    @NonNull
+    public static Dependency fromGradle(@NonNull String dependencyString) {
         String[] parts = dependencyString.split(":");
         if(parts.length != 3) throw new IllegalStateException("Invalid dependency string: " + dependencyString);
         return new Dependency(parts[0], parts[1], parts[2]);

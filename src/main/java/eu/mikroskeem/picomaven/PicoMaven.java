@@ -30,8 +30,8 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import org.apache.maven.artifact.repository.metadata.Metadata;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -39,8 +39,17 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
@@ -68,7 +77,7 @@ public class PicoMaven implements Closeable {
      * @return List of {@link Path}s pointing to dependencies stored on filesystem
      * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
      */
-    @NotNull
+    @NonNull
     public List<Path> downloadAll() throws InterruptedException {
         /* Iterate through all dependencies */
         for(Dependency dependency : dependencyList) {
@@ -194,8 +203,8 @@ public class PicoMaven implements Closeable {
          * @param path Path (non-null)
          * @return this (for chaining)
          */
-        @NotNull
-        public Builder withDownloadPath(@NotNull Path path) {
+        @NonNull
+        public Builder withDownloadPath(@NonNull Path path) {
             this.downloadPath = path;
             return this;
         }
@@ -206,7 +215,7 @@ public class PicoMaven implements Closeable {
          * @param client {@link OkHttpClient} instance
          * @return this (for chaining)
          */
-        @NotNull
+        @NonNull
         public Builder withOkHttpClient(@Nullable OkHttpClient client) {
             this.httpClient = client;
             return this;
@@ -218,8 +227,8 @@ public class PicoMaven implements Closeable {
          * @param dependencies List of {@link Dependency}
          * @return this (for chaining)
          */
-        @NotNull
-        public Builder withDependencies(@NotNull List<Dependency> dependencies) {
+        @NonNull
+        public Builder withDependencies(@NonNull List<Dependency> dependencies) {
             this.dependencies = Collections.unmodifiableList(dependencies);
             return this;
         }
@@ -230,8 +239,8 @@ public class PicoMaven implements Closeable {
          * @param repositories List of repository {@link URI}s
          * @return this (for chaining)
          */
-        @NotNull
-        public Builder withRepositories(@NotNull List<URI> repositories) {
+        @NonNull
+        public Builder withRepositories(@NonNull List<URI> repositories) {
             this.repositories = Collections.unmodifiableList(repositories);
             return this;
         }
@@ -242,7 +251,7 @@ public class PicoMaven implements Closeable {
          * @param executorService {@link ExecutorService} instance
          * @return this (for chaining)
          */
-        @NotNull
+        @NonNull
         public Builder withExecutorService(@Nullable ExecutorService executorService) {
             this.executorService = executorService;
             return this;
@@ -254,7 +263,7 @@ public class PicoMaven implements Closeable {
          * @param downloaderCallbacks Implementation of {@link DownloaderCallbacks}
          * @return this (for chaining)
          */
-        @NotNull
+        @NonNull
         public Builder withDownloaderCallbacks(@Nullable DownloaderCallbacks downloaderCallbacks) {
             this.downloaderCallbacks = downloaderCallbacks;
             return this;
@@ -266,7 +275,7 @@ public class PicoMaven implements Closeable {
          * @param loggerImpl Logger instance
          * @return this (for chaining)
          */
-        @NotNull
+        @NonNull
         public Builder withDebugLoggerImpl(@Nullable DebugLoggerImpl loggerImpl) {
             this.loggerImpl = loggerImpl;
             return this;
@@ -278,7 +287,7 @@ public class PicoMaven implements Closeable {
          * @param value Boolean
          * @return this (for chaining)
          */
-        @NotNull
+        @NonNull
         public Builder shouldCloseExecutorService(boolean value) {
             this.shouldCloseExecutorService = value;
             return this;
@@ -299,7 +308,7 @@ public class PicoMaven implements Closeable {
                 executorService = Executors.newCachedThreadPool(new ThreadFactory() {
                     private final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
                     @Override
-                    public Thread newThread(@NotNull Runnable runnable) {
+                    public Thread newThread(@NonNull Runnable runnable) {
                         Thread thread = new Thread(runnable);
                         thread.setName("PicoMaven downloader thread " + THREAD_COUNTER.getAndIncrement());
                         return thread;
