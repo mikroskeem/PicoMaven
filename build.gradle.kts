@@ -5,7 +5,7 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 plugins {
     `java-library`
     id("net.minecrell.licenser") version "0.3"
-    id("com.github.johnrengelman.shadow") version "2.0.2"
+    id("com.github.johnrengelman.shadow") version "4.0.3"
     `maven-publish`
 }
 
