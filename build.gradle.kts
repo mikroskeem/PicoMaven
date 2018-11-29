@@ -14,11 +14,11 @@ version = "0.0.3-SNAPSHOT"
 
 val gradleWrapperVersion = "5.0"
 
-val okHttpVersion = "3.9.1"
-val jbAnnotationsVersion = "15.0"
+val okHttpVersion = "3.12.0"
+val checkerQualVersion = "2.5.7"
 val mavenMetaVersion = "3.5.0"
 
-val junitVersion = "5.1.0"
+val junitVersion = "5.3.2"
 
 repositories {
     mavenLocal()
@@ -30,7 +30,7 @@ repositories {
 dependencies {
     api("com.squareup.okhttp3:okhttp:$okHttpVersion")
     implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
-    implementation("org.jetbrains:annotations:$jbAnnotationsVersion")
+    implementation("org.checkerframework:checker-qual:$checkerQualVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
