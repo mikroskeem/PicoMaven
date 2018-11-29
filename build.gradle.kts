@@ -12,7 +12,7 @@ plugins {
 group = "eu.mikroskeem"
 version = "0.0.3-SNAPSHOT"
 
-val gradleWrapperVersion = "4.6"
+val gradleWrapperVersion = "5.0"
 
 val okHttpVersion = "3.9.1"
 val jbAnnotationsVersion = "15.0"
@@ -43,7 +43,7 @@ license {
 
 val sourcesJar by tasks.creating(Jar::class) {
     classifier = "sources"
-    from(java.sourceSets["main"].allJava)
+    from(sourceSets["main"].allJava)
 }
 
 val javadoc by tasks.getting(Javadoc::class)
@@ -73,7 +73,6 @@ val shadowJar by tasks.getting(ShadowJar::class) {
 
 val wrapper by tasks.getting(Wrapper::class) {
     gradleVersion = gradleWrapperVersion
-    distributionUrl = "https://services.gradle.org/distributions/gradle-$gradleVersion-all.zip"
 }
 
 val test by tasks.getting(Test::class) {
@@ -92,7 +91,7 @@ val test by tasks.getting(Test::class) {
 
 publishing {
     (publications) {
-        "maven"(MavenPublication::class) {
+        create("maven", MavenPublication::class) {
             artifactId = "picomaven"
 
             from(components["java"])
