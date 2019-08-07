@@ -28,6 +28,7 @@ package eu.mikroskeem.picomaven;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.nio.file.Path;
 
 /**
@@ -55,8 +56,8 @@ public interface DownloaderCallbacks {
     @SuppressWarnings("deprecation")
     default void onFailure(@NonNull Dependency dependency, @NonNull Exception exception) {
         try {
-            java.lang.reflect.Method method = this.getClass().getMethod("onFailure", Dependency.class, IOException.class);
-            if(method.isDefault()) throw new AbstractMethodError(
+            Method method = this.getClass().getMethod("onFailure", Dependency.class, IOException.class);
+            if (method.isDefault()) throw new AbstractMethodError(
                     "Either one of 'onEither' method must be implemented for DownloaderCallbacks");
 
             /* Pass execution to #onFailure(Dependency, IOException) */

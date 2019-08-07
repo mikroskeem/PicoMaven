@@ -47,9 +47,10 @@ class DataProcessor {
         Request request = new Request.Builder()
                 .url(HttpUrl.get(url))
                 .build();
-        try(Response response = client.newCall(request).execute()) {
-            if(response.isSuccessful())
+        try (Response response = client.newCall(request).execute()) {
+            if (response.isSuccessful()) {
                 return new MetadataXpp3Reader().read(response.body().charStream());
+            }
         } catch (XmlPullParserException e) {
             throw new IOException(e);
         }

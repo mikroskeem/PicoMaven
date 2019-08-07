@@ -104,7 +104,7 @@ public class Dependency {
     @NonNull
     public static Dependency fromGradle(@NonNull String dependencyString) {
         String[] parts = dependencyString.split(":");
-        if(parts.length != 3) throw new IllegalStateException("Invalid dependency string: " + dependencyString);
+        if (parts.length != 3) throw new IllegalStateException("Invalid dependency string: " + dependencyString);
         return new Dependency(parts[0], parts[1], parts[2]);
     }
 

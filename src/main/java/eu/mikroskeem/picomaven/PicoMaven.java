@@ -81,12 +81,12 @@ public class PicoMaven implements Closeable {
     @NonNull
     public Map<Dependency, Path> downloadAllArtifacts() throws InterruptedException {
         /* Iterate through all dependencies */
-        for(Dependency dependency : dependencyList) {
+        for (Dependency dependency : dependencyList) {
             logger.debug("Trying to download dependency %s", dependency);
             Callable<Void> task = () -> {
                 Path theDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency);
                 logger.debug("%s path: %s", dependency, theDownloadPath);
-                if(!Files.exists(theDownloadPath)) {
+                if (!Files.exists(theDownloadPath)) {
                     /* Iterate through every repository */
                     try {
                         for (URI repositoryUri : repositoryUris) {
@@ -106,7 +106,7 @@ public class PicoMaven implements Closeable {
                                 }
                             } catch (IOException e) {
                                 /* Skip repository */
-                                if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception)e);
+                                if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception)e);
                                 continue;
                             }
 
@@ -128,17 +128,17 @@ public class PicoMaven implements Closeable {
                                     logger.debug("%s download failed!", dependency);
                                 }
                             } catch (IOException e) {
-                                if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) e);
+                                if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) e);
                             }
                         }
-                        if(downloadedDependencies.contains(dependency)) {
-                            if(downloaderCallbacks != null) downloaderCallbacks.onSuccess(dependency, theDownloadPath);
+                        if (downloadedDependencies.contains(dependency)) {
+                            if (downloaderCallbacks != null) downloaderCallbacks.onSuccess(dependency, theDownloadPath);
                         } else {
                             IOException exception = new IOException("Not found");
-                            if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) exception);
+                            if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) exception);
                         }
                     } catch (Exception e) {
-                        if(downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, e);
+                        if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, e);
                     }
                 } else {
                     logger.debug("%s is already downloaded", dependency);
@@ -179,7 +179,7 @@ public class PicoMaven implements Closeable {
      */
     @Override
     public void close() {
-        if(shouldCloseExecutorService) {
+        if (shouldCloseExecutorService) {
             executorService.shutdown();
             try {
                 executorService.awaitTermination(150, TimeUnit.MILLISECONDS);
@@ -316,13 +316,14 @@ public class PicoMaven implements Closeable {
          *
          * @return Instance of {@link PicoMaven}
          */
+        @NonNull
         public PicoMaven build() {
-            if(downloadPath == null) throw new IllegalStateException("Download path cannot be unset!");
-            if(dependencies == null) dependencies = Collections.emptyList();
-            if(repositories == null) repositories = Collections.emptyList();
-            if(httpClient == null) httpClient = new OkHttpClient();
-            if(loggerImpl == null) loggerImpl = DebugLoggerImpl.DummyDebugLogger.INSTANCE;
-            if(executorService == null) {
+            if (downloadPath == null) throw new IllegalStateException("Download path cannot be unset!");
+            if (dependencies == null) dependencies = Collections.emptyList();
+            if (repositories == null) repositories = Collections.emptyList();
+            if (httpClient == null) httpClient = new OkHttpClient();
+            if (loggerImpl == null) loggerImpl = DebugLoggerImpl.DummyDebugLogger.INSTANCE;
+            if (executorService == null) {
                 executorService = Executors.newCachedThreadPool(new ThreadFactory() {
                     private final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
                     @Override
