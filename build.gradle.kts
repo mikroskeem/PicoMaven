@@ -4,21 +4,24 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 
 plugins {
     `java-library`
-    id("net.minecrell.licenser") version "0.3"
-    id("com.github.johnrengelman.shadow") version "4.0.3"
+    id("net.minecrell.licenser") version "0.4.1"
+    id("com.github.johnrengelman.shadow") version "5.0.0"
     `maven-publish`
 }
 
 group = "eu.mikroskeem"
 version = "0.0.4-SNAPSHOT"
 
-val gradleWrapperVersion = "5.0"
+val okHttpVersion = "4.0.1"
+val checkerQualVersion = "2.9.0"
+val mavenMetaVersion = "3.6.1"
 
-val okHttpVersion = "3.12.0"
-val checkerQualVersion = "2.5.7"
-val mavenMetaVersion = "3.5.0"
+val junitVersion = "5.5.1"
 
-val junitVersion = "5.3.2"
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 
 repositories {
     mavenLocal()
@@ -71,10 +74,6 @@ val shadowJar by tasks.getting(ShadowJar::class) {
     }
 }
 
-val wrapper by tasks.getting(Wrapper::class) {
-    gradleVersion = gradleWrapperVersion
-}
-
 val test by tasks.getting(Test::class) {
     useJUnitPlatform()
 
@@ -90,8 +89,8 @@ val test by tasks.getting(Test::class) {
 }
 
 publishing {
-    (publications) {
-        create("maven", MavenPublication::class) {
+    publications {
+        create<MavenPublication>("maven") {
             artifactId = "picomaven"
 
             from(components["java"])
@@ -143,10 +142,10 @@ publishing {
 
     repositories {
         mavenLocal()
-        if(rootProject.hasProperty("wutRepoUsername") && rootProject.hasProperty("wutRepoPassword")) {
+        if (rootProject.hasProperty("wutee.repository.deploy.username") && rootProject.hasProperty("wutee.repository.deploy.password")) {
             maven("https://repo.wut.ee/repository/mikroskeem-repo").credentials {
-                username = rootProject.properties["wutRepoUsername"]!! as String
-                password = rootProject.properties["wutRepoPassword"]!! as String
+                username = rootProject.properties["wutee.repository.deploy.username"]!! as String
+                password = rootProject.properties["wutee.repository.deploy.password"]!! as String
             }
         }
     }
