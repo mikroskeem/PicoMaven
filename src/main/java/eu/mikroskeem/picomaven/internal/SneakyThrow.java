@@ -23,18 +23,32 @@
  * THE SOFTWARE.
  */
 
-package eu.mikroskeem.picomaven;
+package eu.mikroskeem.picomaven.internal;
 
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
+ * Anti-checked exceptions
+ *
  * @author Mark Vainomaa
  */
-public interface DebugLoggerImpl {
-    void debug(@NonNull String format, @NonNull Object... contents);
+public final class SneakyThrow {
+    @SuppressWarnings("unchecked")
+    public static <T extends Throwable> void rethrow(@Nullable Throwable t) throws T {
+        throw (T) t;
+    }
 
-    class DummyDebugLogger implements DebugLoggerImpl {
-        final static DummyDebugLogger INSTANCE = new DummyDebugLogger();
-        @Override public void debug(@NonNull String format, @NonNull Object... contents) {}
+    public static <T, E extends Throwable> T get(@NonNull ThrowingSupplier<T, E> supplier) {
+        try {
+            return supplier.get();
+        } catch (Throwable t) {
+            rethrow(t);
+        }
+        return null;
+    }
+
+    public interface ThrowingSupplier<T, E extends Throwable> {
+        T get() throws E;
     }
 }

@@ -6,15 +6,16 @@ plugins {
     `java-library`
     id("net.minecrell.licenser") version "0.4.1"
     id("com.github.johnrengelman.shadow") version "5.0.0"
+    id("net.kyori.blossom") version "1.1.0"
     `maven-publish`
 }
 
 group = "eu.mikroskeem"
-version = "0.0.4-SNAPSHOT"
+version = "0.0.5-SNAPSHOT"
 
-val okHttpVersion = "4.0.1"
 val checkerQualVersion = "2.9.0"
 val mavenMetaVersion = "3.6.1"
+val slf4jApiVersion = "1.7.25"
 
 val junitVersion = "5.5.1"
 
@@ -31,12 +32,14 @@ repositories {
 }
 
 dependencies {
-    api("com.squareup.okhttp3:okhttp:$okHttpVersion")
     implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
-    implementation("org.checkerframework:checker-qual:$checkerQualVersion")
+
+    compileOnly("org.checkerframework:checker-qual:$checkerQualVersion")
+    compileOnly("org.slf4j:slf4j-api:$slf4jApiVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
+    testRuntime("org.slf4j:slf4j-simple:$slf4jApiVersion")
 }
 
 license {
@@ -64,9 +67,7 @@ val shadowJar by tasks.getting(ShadowJar::class) {
     val targetPackage = "eu.mikroskeem.picomaven.shaded"
     val relocations = listOf(
             "org.apache.maven",
-            "org.codehaus.plexus",
-            "okhttp3",
-            "okio"
+            "org.codehaus.plexus"
     )
 
     relocations.forEach {
@@ -76,6 +77,7 @@ val shadowJar by tasks.getting(ShadowJar::class) {
 
 val test by tasks.getting(Test::class) {
     useJUnitPlatform()
+    systemProperty("org.slf4j.simpleLogger.defaultLogLevel", "trace")
 
     // Show output
     testLogging {
@@ -85,7 +87,10 @@ val test by tasks.getting(Test::class) {
 
     // Verbose
     beforeTest(closureOf<Any> { logger.lifecycle("Running test: $this") })
+}
 
+blossom {
+    replaceToken("__PICOMAVEN_VERSION__", "${rootProject.version}")
 }
 
 publishing {

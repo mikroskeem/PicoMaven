@@ -25,6 +25,7 @@
 
 package eu.mikroskeem.picomaven;
 
+import eu.mikroskeem.picomaven.artifact.Dependency;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -39,7 +40,7 @@ public class DependencyTest {
         String artifactId = "HikariCP";
         String version = "2.6.3";
 
-        Dependency dependency = Dependency.fromGradle(groupId + ':' + artifactId + ':' + version);
+        Dependency dependency = Dependency.fromString(groupId + ':' + artifactId + ':' + version);
         Assertions.assertEquals(groupId, dependency.getGroupId());
         Assertions.assertEquals(artifactId, dependency.getArtifactId());
         Assertions.assertEquals(version, dependency.getVersion());

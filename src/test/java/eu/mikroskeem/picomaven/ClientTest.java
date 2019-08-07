@@ -25,22 +25,27 @@
 
 package eu.mikroskeem.picomaven;
 
-import okhttp3.OkHttpClient;
+import eu.mikroskeem.picomaven.artifact.Dependency;
+import eu.mikroskeem.picomaven.internal.DataProcessor;
+import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.net.URI;
-import java.nio.file.Path;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Future;
 
 /**
  * @author Mark Vainomaa
  */
 public class ClientTest {
-    private final static URI MAVEN_CENTRAL_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+    private static final URI MAVEN_CENTRAL_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+
     private static File downloadDir;
     static {
         downloadDir = new File("./target/_downloadTest" + Math.random());
@@ -49,31 +54,39 @@ public class ClientTest {
 
     @Test
     public void testDefaultBuilder() throws Exception {
-        List<Dependency> dependencies = Arrays.asList(UriUtilsTest.SAMPLE_DEPENDENCY, UriUtilsTest.SAMPLE_DEPENDENCY2);
+        List<Dependency> dependencies = Arrays.asList(UrlUtilsTest.SAMPLE_DEPENDENCY, UrlUtilsTest.SAMPLE_DEPENDENCY2);
         try (
             PicoMaven picoMaven = new PicoMaven.Builder()
                 .withDownloadPath(downloadDir.toPath())
-                .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, UriUtilsTest.DEFAULT_REPOSITORY2))
+                .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, UrlUtilsTest.DEFAULT_REPOSITORY2))
                 .withDependencies(dependencies)
-                    .withDebugLoggerImpl((format, contents) -> System.err.format(format + "\n", contents))
                 .build()
         ) {
-            List<Path> downloadedDeps = picoMaven.downloadAll();
-            Assertions.assertEquals(dependencies.size(), downloadedDeps.size());
+            Map<Dependency, Future<DownloadResult>> downloads = picoMaven.downloadAllArtifacts();
+            int downloaded = 0;
+            for (Future<DownloadResult> value : downloads.values()) {
+                try {
+                    DownloadResult res = value.get();
+                    if (res.isSuccess()) {
+                        downloaded++;
+                    }
+                }
+                catch (Exception ignored) {}
+            }
+
+            Assertions.assertEquals(dependencies.size(), downloaded);
         }
     }
 
     @Test
     public void testDataFetching() throws Exception {
-        OkHttpClient httpClient = new OkHttpClient();
-
-        URI uri = UrlUtils.buildGroupMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        Metadata metadata = DataProcessor.getMetadata(httpClient, uri);
+        URL url = UrlUtils.buildGroupMetaURL(UrlUtilsTest.DEFAULT_REPOSITORY2.toURL(), UrlUtilsTest.SAMPLE_DEPENDENCY2);
+        Metadata metadata = DataProcessor.getMetadata(url);
         Assertions.assertNotNull(metadata);
-        URI uri2 = UrlUtils.buildArtifactMetaURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        Metadata metadata2 = DataProcessor.getMetadata(httpClient, uri2);
+        URL url2 = UrlUtils.buildArtifactMetaURL(UrlUtilsTest.DEFAULT_REPOSITORY2.toURL(), metadata, UrlUtilsTest.SAMPLE_DEPENDENCY2);
+        Metadata metadata2 = DataProcessor.getMetadata(url2);
         Assertions.assertNotNull(metadata2);
-        URI uri3 = UrlUtils.buildArtifactJarURI(UriUtilsTest.DEFAULT_REPOSITORY2, metadata2, UriUtilsTest.SAMPLE_DEPENDENCY2);
-        Assertions.assertNotNull(uri3);
+        URL url3 = UrlUtils.buildArtifactURL(UrlUtilsTest.DEFAULT_REPOSITORY2.toURL(), metadata2, UrlUtilsTest.SAMPLE_DEPENDENCY2, "jar");
+        Assertions.assertNotNull(url3);
     }
 }

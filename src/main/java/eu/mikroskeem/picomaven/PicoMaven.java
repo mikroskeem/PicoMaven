@@ -25,34 +25,45 @@
 
 package eu.mikroskeem.picomaven;
 
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
+import eu.mikroskeem.picomaven.artifact.Dependency;
+import eu.mikroskeem.picomaven.internal.DataProcessor;
+import eu.mikroskeem.picomaven.internal.SneakyThrow;
+import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 /**
  * PicoMaven
@@ -60,118 +71,163 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author Mark Vainomaa
  */
 public class PicoMaven implements Closeable {
+    private static final Logger logger = LoggerFactory.getLogger(PicoMaven.class);
+    private static final List<ArtifactChecksum.ChecksumAlgo> REMOTE_CHECKSUM_ALGOS = Arrays.asList(
+            ArtifactChecksum.ChecksumAlgo.MD5,
+            ArtifactChecksum.ChecksumAlgo.SHA1
+    );
+
     private final Path downloadPath;
     private final List<Dependency> dependencyList;
-    private final List<URI> repositoryUris;
-    private final OkHttpClient httpClient;
+    private final List<URL> repositoryUris;
     private final ExecutorService executorService;
-    private final DownloaderCallbacks downloaderCallbacks;
-    private final DebugLoggerImpl logger;
     private final boolean shouldCloseExecutorService;
 
-    private final Queue<Dependency> downloadedDependencies = new ConcurrentLinkedQueue<>();
-    private final List<Callable<Void>> downloadTasks = new ArrayList<>();
-
-    /**
-     * Download all dependencies from configured repositories
-     *
-     * @return Map of {@link Dependency}s and their respective {@link Path}s pointing to dependencies stored on filesystem
-     * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
-     */
-    @NonNull
-    public Map<Dependency, Path> downloadAllArtifacts() throws InterruptedException {
-        /* Iterate through all dependencies */
-        for (Dependency dependency : dependencyList) {
-            logger.debug("Trying to download dependency %s", dependency);
-            Callable<Void> task = () -> {
-                Path theDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency);
-                logger.debug("%s path: %s", dependency, theDownloadPath);
-                if (!Files.exists(theDownloadPath)) {
-                    /* Iterate through every repository */
-                    try {
-                        for (URI repositoryUri : repositoryUris) {
-                            logger.debug("Trying repository %s for %s", repositoryUri, dependency);
-                            Metadata metadata = null;
-                            Metadata artifactMetadata = null;
-                            URI groupMetaURI = UrlUtils.buildGroupMetaURI(repositoryUri, dependency);
-                            logger.debug("%s group meta URI: %s", dependency, groupMetaURI);
-
-                            /* Try to parse repository meta */
-                            try {
-                                metadata = DataProcessor.getMetadata(httpClient, groupMetaURI);
-                                if (metadata != null) {
-                                    URI artifactMetaURI = UrlUtils.buildArtifactMetaURI(repositoryUri, metadata, dependency);
-                                    logger.debug("%s artifact meta URI: %s", dependency, artifactMetaURI);
-                                    artifactMetadata = DataProcessor.getMetadata(httpClient, artifactMetaURI);
-                                }
-                            } catch (IOException e) {
-                                /* Skip repository */
-                                if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception)e);
-                                continue;
-                            }
-
-                            /* Build artifact url */
-                            URI artifactJarURI = UrlUtils.buildArtifactJarURI(repositoryUri, artifactMetadata, dependency);
-                            logger.debug("Downloading %s from %s", dependency, artifactJarURI);
-                            Request request = new Request.Builder().url(HttpUrl.get(artifactJarURI)).build();
-                            try (Response artifactJarResponse = httpClient.newCall(request).execute()) {
-                                if (artifactJarResponse.isSuccessful()) {
-                                    Path parentPath = theDownloadPath.getParent();
-                                    if (!Files.exists(parentPath)) Files.createDirectories(parentPath);
-                                    Files.copy(artifactJarResponse.body().byteStream(), theDownloadPath,
-                                            StandardCopyOption.REPLACE_EXISTING);
-                                    /* Download success! */
-                                    logger.debug("%s download succeeded!", dependency);
-                                    downloadedDependencies.add(dependency);
-                                    break;
-                                } else {
-                                    logger.debug("%s download failed!", dependency);
-                                }
-                            } catch (IOException e) {
-                                if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) e);
-                            }
-                        }
-                        if (downloadedDependencies.contains(dependency)) {
-                            if (downloaderCallbacks != null) downloaderCallbacks.onSuccess(dependency, theDownloadPath);
-                        } else {
-                            IOException exception = new IOException("Not found");
-                            if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, (Exception) exception);
-                        }
-                    } catch (Exception e) {
-                        if (downloaderCallbacks != null) downloaderCallbacks.onFailure(dependency, e);
-                    }
-                } else {
-                    logger.debug("%s is already downloaded", dependency);
-                    downloadedDependencies.add(dependency);
-                }
-                return null; /* What? */
-            };
-            downloadTasks.add(task);
+    private void downloadArtifact(@NonNull Dependency dependency, @NonNull URL artifactUrl,
+                                  @NonNull Path target, @NonNull InputStream is) throws IOException {
+        Path parentPath = target.getParent();
+        if (!Files.exists(parentPath)) {
+            Files.createDirectories(parentPath);
         }
-        /* Execute them all */
-        executorService.invokeAll(downloadTasks);
 
-        /* Build dependencies map */
-        Map<Dependency, Path> dependencies = new LinkedHashMap<>();
-        downloadedDependencies.forEach(dependency -> {
-            dependencies.put(dependency, UrlUtils.formatLocalPath(downloadPath, dependency));
-        });
+        // Copy artifact into memory
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int b;
+        while ((b = is.read(buf, 0, buf.length)) != -1) {
+            baos.write(buf, 0, b);
+        }
 
-        return Collections.unmodifiableMap(dependencies);
+        // Check specified checksums
+        if (!dependency.getChecksums().isEmpty()) {
+            logger.trace("{} has checksums set, using them to check consistency", dependency);
+            for (ArtifactChecksum checksum : dependency.getChecksums()) {
+                if (!DataProcessor.verifyChecksum(checksum, baos.toByteArray())) {
+                    throw new IOException(checksum.getAlgo().name() + " checksum mismatch");
+                }
+            }
+        } else {
+            // Attempt to fetch remote checksums
+            logger.trace("{} does not have any checksums, fetching them from remote repository", dependency);
+            List<CompletableFuture<ArtifactChecksum>> futures = new ArrayList<>(REMOTE_CHECKSUM_ALGOS.size());
+            for (ArtifactChecksum.ChecksumAlgo remoteChecksumAlgo : REMOTE_CHECKSUM_ALGOS) {
+                futures.add(DataProcessor.getArtifactChecksum(executorService, artifactUrl, remoteChecksumAlgo));
+            }
+
+            // Wait for both checksum queries to finish
+            ArtifactChecksum artifactChecksum;
+            boolean checksumVerified = false;
+            while (true) {
+                try {
+                    for (CompletableFuture<?> future : futures) {
+                        future.get();
+                    }
+                    break;
+                }
+                catch (ExecutionException | InterruptedException ignored) {}
+            }
+
+            // Verify checksums
+            for (CompletableFuture<ArtifactChecksum> future : futures) {
+                if ((artifactChecksum = future.getNow(null)) != null) {
+                    logger.trace("{} repository {} checksum is {}", dependency, artifactChecksum.getAlgo().name(), artifactChecksum.getChecksum());
+                    if (!DataProcessor.verifyChecksum(artifactChecksum, baos.toByteArray())) {
+                        throw new IOException(artifactChecksum.getAlgo().name() + " checksum mismatch");
+                    }
+                    checksumVerified = true;
+                }
+            }
+
+            if (!checksumVerified) {
+                logger.debug("{}'s {} checksums weren't available remotely", REMOTE_CHECKSUM_ALGOS, dependency);
+            }
+        }
+
+        // Copy
+        Files.copy(new ByteArrayInputStream(baos.toByteArray()), target, StandardCopyOption.REPLACE_EXISTING);
+
+        // Download success!
+        logger.debug("{} download succeeded!", dependency);
     }
 
-    /**
-     * Download all dependencies from configured repositories
-     *
-     * @return List of {@link Path}s pointing to dependencies stored on filesystem
-     * @throws InterruptedException thrown by {@link ExecutorService#invokeAll(Collection)}
-     * @deprecated Use {@link #downloadAllArtifacts()} instead. This method will be removed in new version
-     */
-    @NonNull
-    @Deprecated
-    public List<Path> downloadAll() throws InterruptedException {
-        Map<Dependency, Path> dependencies = this.downloadAllArtifacts();
-        return Collections.unmodifiableList(new ArrayList<>(dependencies.values()));
+    public Map<@NonNull Dependency, @NonNull Future<@Nullable DownloadResult>> downloadAllArtifacts() {
+        Map<Dependency, Future<DownloadResult>> tasks = new LinkedHashMap<>(dependencyList.size());
+        for (final Dependency dependency : dependencyList) {
+            tasks.put(dependency, executorService.submit(() -> {
+                logger.trace("Trying to download dependency {}", dependency);
+                Path artifactDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "jar");
+                URL artifactUrl;
+                if (Files.exists(artifactDownloadPath)) {
+                    logger.debug("{} is already downloaded", dependency);
+
+                    // TODO: transitive dependencies
+                    return DownloadResult.of(dependency, artifactDownloadPath);
+                }
+
+                // Iterate through repositories until an artifact is found
+                for (URL repository : repositoryUris) {
+                    logger.debug("Trying repository {} for {}", repository, dependency);
+                    Metadata groupMetadata = null;
+                    Metadata artifactMetadata = null;
+                    URLConnection connection = null;
+
+                    // Do dumb check whether we can download artifact without parsing XML at all
+                    if (!dependency.getVersion().endsWith("-SNAPSHOT")) {
+                        connection = UrlUtils.openConnection((artifactUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "jar")));
+                        logger.trace("{} direct artifact URL: {}", dependency, artifactUrl);
+                        try (InputStream is = connection.getInputStream()) {
+                            UrlUtils.ensureSuccessfulRequest(connection);
+                            downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
+
+                            // TODO: transitive dependencies
+                            return DownloadResult.of(dependency, artifactDownloadPath);
+                        } catch (IOException e) {
+                            // Non-fatal error, continue
+                            logger.trace("{} direct artifact URL {} did not work, trying to fetch XML", dependency, artifactUrl);
+                        }
+                    }
+
+                    // Try to find group metadata xml and grab artifact metadata xml URL from it
+                    URL groupMetaURI = UrlUtils.buildGroupMetaURL(repository, dependency);
+                    logger.trace("{} group meta URL: {}", dependency, groupMetaURI);
+                    try {
+                        if ((groupMetadata = DataProcessor.getMetadata(groupMetaURI)) != null) {
+                            URL artifactMetaURI = UrlUtils.buildArtifactMetaURL(repository, groupMetadata, dependency);
+                            logger.trace("{} artifact meta URL: {}", dependency, artifactMetaURI);
+                            artifactMetadata = DataProcessor.getMetadata(artifactMetaURI);
+                        } else {
+                            throw new FileNotFoundException();
+                        }
+                    } catch (FileNotFoundException e) {
+                        logger.debug("{} not found in repository {}", dependency, repository);
+                        continue;
+                    } catch (IOException e) {
+                        // Skip this repository
+                        continue;
+                    }
+
+                    // Figure out artifact URL and attempt to download it
+                    artifactUrl = UrlUtils.buildArtifactURL(repository, artifactMetadata, dependency, "jar");
+                    logger.trace("Downloading {} from {}", dependency, artifactUrl);
+                    connection = UrlUtils.openConnection(artifactUrl);
+                    try (InputStream is = connection.getInputStream()) {
+                        UrlUtils.ensureSuccessfulRequest(connection);
+                        downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
+
+                        // TODO: transitive dependencies
+                        return DownloadResult.of(dependency, artifactDownloadPath);
+                    } catch (FileNotFoundException e) {
+                        logger.debug("{} not found in repository {}", dependency, repository);
+                    } catch (IOException e) {
+                        logger.debug("{} download failed!", dependency);
+                    }
+                }
+
+                return DownloadResult.of(dependency, artifactDownloadPath, new IOException("Not found"));
+            }));
+        }
+
+        return Collections.unmodifiableMap(tasks);
     }
 
     /**
@@ -189,16 +245,12 @@ public class PicoMaven implements Closeable {
         }
     }
 
-    private PicoMaven(Path downloadPath, List<Dependency> dependencyList, List<URI> repositoryUris, OkHttpClient
-            httpClient, ExecutorService executorService, DownloaderCallbacks downloaderCallbacks, DebugLoggerImpl
-            logger, boolean shouldCloseExecutorService) {
+    private PicoMaven(Path downloadPath, List<Dependency> dependencyList, List<URL> repositoryUris,
+                      ExecutorService executorService, boolean shouldCloseExecutorService) {
         this.downloadPath = downloadPath;
         this.dependencyList = dependencyList;
         this.repositoryUris = repositoryUris;
-        this.httpClient = httpClient;
         this.executorService = executorService;
-        this.downloaderCallbacks = downloaderCallbacks;
-        this.logger = logger;
         this.shouldCloseExecutorService = shouldCloseExecutorService;
     }
 
@@ -207,12 +259,9 @@ public class PicoMaven implements Closeable {
      */
     public static class Builder {
         private Path downloadPath = null;
-        private OkHttpClient httpClient = null;
         private List<Dependency> dependencies = null;
-        private List<URI> repositories = null;
+        private List<URL> repositories = null;
         private ExecutorService executorService = null;
-        private DownloaderCallbacks downloaderCallbacks = null;
-        private DebugLoggerImpl loggerImpl = null;
         private boolean shouldCloseExecutorService = false;
 
         /**
@@ -224,18 +273,6 @@ public class PicoMaven implements Closeable {
         @NonNull
         public Builder withDownloadPath(@NonNull Path path) {
             this.downloadPath = path;
-            return this;
-        }
-
-        /**
-         * Set {@link OkHttpClient} instance what'll be used in this {@link PicoMaven} instance
-         *
-         * @param client {@link OkHttpClient} instance
-         * @return this (for chaining)
-         */
-        @NonNull
-        public Builder withOkHttpClient(@Nullable OkHttpClient client) {
-            this.httpClient = client;
             return this;
         }
 
@@ -259,7 +296,33 @@ public class PicoMaven implements Closeable {
          */
         @NonNull
         public Builder withRepositories(@NonNull List<URI> repositories) {
-            this.repositories = Collections.unmodifiableList(repositories);
+            withRepositories((Collection<URI>) repositories);
+            return this;
+        }
+
+        /**
+         * Set repositories, where to look up dependencies
+         *
+         * @param repositories Collection of repository {@link URI}s
+         * @return this (for chaining)
+         */
+        @NonNull
+        public Builder withRepositories(@NonNull Collection<URI> repositories) {
+            this.repositories = repositories.stream()
+                    .map(u -> SneakyThrow.get(u::toURL))
+                    .collect(Collectors.toList());
+            return this;
+        }
+
+        /**
+         * Set repositories list, where to look up dependencies
+         *
+         * @param repositories List of repository {@link URL}s
+         * @return this (for chaining)
+         */
+        @NonNull
+        public Builder withRepositoryURLs(@NonNull Collection<URL> repositories) {
+            this.repositories = Collections.unmodifiableList(new ArrayList<>(repositories));
             return this;
         }
 
@@ -272,30 +335,6 @@ public class PicoMaven implements Closeable {
         @NonNull
         public Builder withExecutorService(@Nullable ExecutorService executorService) {
             this.executorService = executorService;
-            return this;
-        }
-
-        /**
-         * Set {@link DownloaderCallbacks} to get information about downloads
-         *
-         * @param downloaderCallbacks Implementation of {@link DownloaderCallbacks}
-         * @return this (for chaining)
-         */
-        @NonNull
-        public Builder withDownloaderCallbacks(@Nullable DownloaderCallbacks downloaderCallbacks) {
-            this.downloaderCallbacks = downloaderCallbacks;
-            return this;
-        }
-
-        /**
-         * Set {@link DebugLoggerImpl} implementing logger instance
-         *
-         * @param loggerImpl Logger instance
-         * @return this (for chaining)
-         */
-        @NonNull
-        public Builder withDebugLoggerImpl(@Nullable DebugLoggerImpl loggerImpl) {
-            this.loggerImpl = loggerImpl;
             return this;
         }
 
@@ -321,8 +360,6 @@ public class PicoMaven implements Closeable {
             if (downloadPath == null) throw new IllegalStateException("Download path cannot be unset!");
             if (dependencies == null) dependencies = Collections.emptyList();
             if (repositories == null) repositories = Collections.emptyList();
-            if (httpClient == null) httpClient = new OkHttpClient();
-            if (loggerImpl == null) loggerImpl = DebugLoggerImpl.DummyDebugLogger.INSTANCE;
             if (executorService == null) {
                 executorService = Executors.newCachedThreadPool(new ThreadFactory() {
                     private final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
@@ -335,8 +372,7 @@ public class PicoMaven implements Closeable {
                 });
                 shouldCloseExecutorService = true;
             }
-            return new PicoMaven(downloadPath, dependencies, repositories, httpClient,
-                    executorService, downloaderCallbacks, loggerImpl, shouldCloseExecutorService);
+            return new PicoMaven(downloadPath, dependencies, repositories, executorService, shouldCloseExecutorService);
         }
     }
 }

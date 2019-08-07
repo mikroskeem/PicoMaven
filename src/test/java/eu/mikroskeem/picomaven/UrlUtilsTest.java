@@ -25,6 +25,9 @@
 
 package eu.mikroskeem.picomaven;
 
+import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
+import eu.mikroskeem.picomaven.artifact.Dependency;
+import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
 import org.junit.jupiter.api.Assertions;
@@ -32,16 +35,17 @@ import org.junit.jupiter.api.Test;
 
 import java.io.StringReader;
 import java.net.URI;
+import java.net.URL;
 
 /**
  * @author Mark Vainomaa
  */
-public class UriUtilsTest {
-    public final static URI DEFAULT_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
-    public final static URI DEFAULT_REPOSITORY2 = URI.create("https://repo.spongepowered.org/maven");
-    public final static Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2");
-    public final static Dependency SAMPLE_DEPENDENCY2 = new Dependency("org.spongepowered", "mixin", "0.6.8-SNAPSHOT");
-    public final static String SAMPLE_METADATA =
+public class UrlUtilsTest {
+    public static final URI DEFAULT_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+    public static final URI DEFAULT_REPOSITORY2 = URI.create("https://repo.spongepowered.org/maven");
+    public static final Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2", ArtifactChecksum.sha1HexSumOf("2ea49e08b876bbd33e0a7ce75c8f371d29e1f10a"));
+    public static final Dependency SAMPLE_DEPENDENCY2 = new Dependency("org.spongepowered", "mixin", "0.6.8-SNAPSHOT");
+    public static final String SAMPLE_METADATA =
             "<metadata>\n" +
             "  <groupId>org.ow2.asm</groupId>\n" +
             "  <artifactId>asm-all</artifactId>\n" +
@@ -81,8 +85,8 @@ public class UriUtilsTest {
             "</metadata>";
 
     @Test
-    public void testMetadataUriBuilding() {
-        URI groupMetaUri = UrlUtils.buildGroupMetaURI(DEFAULT_REPOSITORY, SAMPLE_DEPENDENCY);
+    public void testMetadataUriBuilding() throws Exception {
+        URL groupMetaUri = UrlUtils.buildGroupMetaURL(DEFAULT_REPOSITORY.toURL(), SAMPLE_DEPENDENCY);
         Assertions.assertEquals("https://repo.maven.apache.org/maven2/org/ow2/asm/asm-all/maven-metadata.xml",
                 groupMetaUri.toString());
     }
@@ -101,7 +105,7 @@ public class UriUtilsTest {
     public void testArtifactMetadataUriBuilding() throws Exception {
         Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_METADATA));
 
-        URI artifactMetaUri = UrlUtils.buildArtifactMetaURI(DEFAULT_REPOSITORY, metadata, SAMPLE_DEPENDENCY);
+        URL artifactMetaUri = UrlUtils.buildArtifactMetaURL(DEFAULT_REPOSITORY.toURL(), metadata, SAMPLE_DEPENDENCY);
         Assertions.assertEquals("https://repo.maven.apache.org/maven2/org/ow2/asm/asm-all/5.2/maven-metadata.xml",
                 artifactMetaUri.toString());
     }
@@ -109,14 +113,14 @@ public class UriUtilsTest {
     @Test
     public void testArtifactJarUriBuilding() throws Exception {
         Metadata metadata = new MetadataXpp3Reader().read(new StringReader(SAMPLE_ARTIFACT_METADATA));
-        URI artifactUri = UrlUtils.buildArtifactJarURI(DEFAULT_REPOSITORY2, metadata, SAMPLE_DEPENDENCY2);
+        URL artifactUri = UrlUtils.buildArtifactURL(DEFAULT_REPOSITORY2.toURL(), metadata, SAMPLE_DEPENDENCY2, "jar");
         String exp = "https://repo.spongepowered.org/maven/org/spongepowered/mixin/0.6.8-SNAPSHOT/mixin-0.6.8-20170320.130808-7.jar";
         Assertions.assertEquals(exp, artifactUri.toString());
     }
 
     @Test
     public void testArtifactJarUriBuildingWithoutMetadata() throws Exception {
-        URI artifactUri = UrlUtils.buildArtifactJarURI(DEFAULT_REPOSITORY, null, SAMPLE_DEPENDENCY);
+        URL artifactUri = UrlUtils.buildArtifactURL(DEFAULT_REPOSITORY.toURL(), null, SAMPLE_DEPENDENCY, "jar");
         String exp = "https://repo.maven.apache.org/maven2/org/ow2/asm/asm-all/5.2/asm-all-5.2.jar";
         Assertions.assertEquals(exp, artifactUri.toString());
     }
