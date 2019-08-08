@@ -34,7 +34,6 @@ import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
 import org.checkerframework.checker.nullness.qual.NonNull;
-import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -335,9 +334,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         logger.debug("{} download succeeded!", dependency);
     }
 
-    @NonNull
-    private String fixupIdentifiers(@NonNull Dependency parent, @NonNull String identifier) {
-        Objects.requireNonNull(identifier, "Identifier cannot be null");
+    private String fixupIdentifiers(@NonNull Dependency parent, String identifier) {
         // Apparently that's a thing
         if ("${project.groupId}".equalsIgnoreCase(identifier)) {
             return parent.getGroupId();
