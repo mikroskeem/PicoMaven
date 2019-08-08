@@ -35,9 +35,9 @@ repositories {
 dependencies {
     implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
     implementation("org.apache.maven:maven-model:$mavenModelVersion")
+    implementation("org.slf4j:slf4j-api:$slf4jApiVersion")
 
     compileOnly("org.checkerframework:checker-qual:$checkerQualVersion")
-    compileOnly("org.slf4j:slf4j-api:$slf4jApiVersion")
 
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
