@@ -26,6 +26,7 @@
 package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.Dependency;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
@@ -50,7 +51,10 @@ public final class DownloadResult {
     private final boolean success;
     private final Exception downloadException;
 
-    public DownloadResult(@NonNull Dependency dependency,
+    @MonotonicNonNull
+    private volatile List<Path> downloadedFiles = null;
+
+    DownloadResult(@NonNull Dependency dependency,
                           @NonNull Collection<DownloadResult> transitiveDependencies,
                           @NonNull Path artifactPath,
                           boolean success,
@@ -62,48 +66,76 @@ public final class DownloadResult {
         this.downloadException = downloadException;
     }
 
-    public DownloadResult(@NonNull Dependency dependency,
-                          @NonNull Collection<DownloadResult> transitiveDependencies,
-                          @NonNull Path artifactPath) {
-        this(dependency, transitiveDependencies, artifactPath, true, null);
-    }
-
-    public DownloadResult(@NonNull Dependency dependency,
-                          @NonNull Path artifactPath,
-                          @NonNull Exception downloadException) {
-        this(dependency, Collections.emptyList(), artifactPath, false, downloadException);
-    }
-
+    /**
+     * Recursively gets all files related to this {@link Dependency} - itself and transitive
+     * dependencies (if {@link Dependency#isTransitive()} is {@code true})
+     *
+     * @return All files related to this dependency
+     */
     @NonNull
     public List<Path> getAllDownloadedFiles() {
-        List<Path> files = new LinkedList<>();
-        files.add(getArtifactPath());
+        List<Path> files = downloadedFiles;
+        if (files == null) {
+            synchronized (this) {
+                if (downloadedFiles == null) {
+                    downloadedFiles = files = new LinkedList<>();
+                    files.add(getArtifactPath());
 
-        for (DownloadResult transitiveDependency : getTransitiveDependencies()) {
-            files.addAll(transitiveDependency.getAllDownloadedFiles());
+                    for (DownloadResult transitiveDependency : getTransitiveDependencies()) {
+                        files.addAll(transitiveDependency.getAllDownloadedFiles());
+                    }
+                }
+            }
         }
 
         return Collections.unmodifiableList(files);
     }
 
+    /**
+     * Gets dependency related to this result
+     *
+     * @return {@link Dependency} related to this result
+     */
     @NonNull
     public Dependency getDependency() {
         return dependency;
     }
 
+    /**
+     * Gets list of transitive dependencies
+     *
+     * @return List of transitive dependencies
+     */
+    @NonNull
     public List<DownloadResult> getTransitiveDependencies() {
-        return transitiveDependencies;
+        return Collections.unmodifiableList(transitiveDependencies);
     }
 
+    /**
+     * Gets this artifact's path on filesystem
+     *
+     * @return This artifact's path
+     */
     @NonNull
     public Path getArtifactPath() {
         return artifactPath;
     }
 
+    /**
+     * Returns whether this download result is success or not
+     *
+     * @return Whether this download result is success or not
+     */
     public boolean isSuccess() {
         return success;
     }
 
+    /**
+     * Gets download exception associated with this download result. It's
+     * only present when {@link #isSuccess()} is {@code false}
+     *
+     * @return Download exception
+     */
     @Nullable
     public Exception getDownloadException() {
         return downloadException;
@@ -136,13 +168,13 @@ public final class DownloadResult {
         return Objects.hash(dependency, artifactPath, success, downloadException);
     }
 
-    static DownloadResult of(@NonNull Dependency dependency,
-                             @NonNull Path artifactPath,
-                             @NonNull Collection<DownloadResult> transitiveDependencies) {
-        return new DownloadResult(dependency, transitiveDependencies, artifactPath);
+    static DownloadResult ofSuccess(@NonNull Dependency dependency,
+                                    @NonNull Path artifactPath,
+                                    @NonNull Collection<DownloadResult> transitiveDependencies) {
+        return new DownloadResult(dependency, transitiveDependencies, artifactPath, true, null);
     }
 
-    static DownloadResult of(@NonNull Dependency dependency, @NonNull Path artifactPath, @NonNull Exception downloadException) {
-        return new DownloadResult(dependency, artifactPath, downloadException);
+    static DownloadResult ofFailure(@NonNull Dependency dependency, @NonNull Path artifactPath, @NonNull Exception downloadException) {
+        return new DownloadResult(dependency, Collections.emptyList(), artifactPath, false, downloadException);
     }
 }

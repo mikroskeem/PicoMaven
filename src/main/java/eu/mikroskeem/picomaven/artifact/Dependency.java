@@ -81,6 +81,7 @@ public final class Dependency {
      * @param version Dependency version
      * @param classifier Jar classifier
      * @param transitive Whether to download transitive dependencies as well or not
+     * @param checksums Predefined checksums
      */
     public Dependency(@NonNull String groupId, @NonNull String artifactId, @NonNull String version,
                       @Nullable String classifier, boolean transitive, @NonNull Collection<ArtifactChecksum> checksums) {

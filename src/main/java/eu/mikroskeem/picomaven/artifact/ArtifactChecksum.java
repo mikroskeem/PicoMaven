@@ -48,6 +48,7 @@ public final class ArtifactChecksum {
      * Constructs a new artifact checksum object
      *
      * @param algo Checksum type
+     * @param encoding Checksum encoding
      * @param checksum Checksum
      */
     public ArtifactChecksum(ArtifactChecksum.@NonNull ChecksumAlgo algo,

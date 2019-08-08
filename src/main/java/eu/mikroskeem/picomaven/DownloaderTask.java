@@ -115,7 +115,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             if (Files.exists(artifactPomDownloadPath) && dependency.isTransitive()) {
                 transitive = downloadTransitive(artifactPomDownloadPath.toUri().toURL());
             }
-            return DownloadResult.of(dependency, artifactDownloadPath, transitive);
+            return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
         }
 
         // Iterate through repositories until an artifact is found
@@ -142,7 +142,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                 try (InputStream is = connection.getInputStream()) {
                     UrlUtils.ensureSuccessfulRequest(connection);
                     downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
-                    return DownloadResult.of(dependency, artifactDownloadPath, transitive);
+                    return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
                 } catch (IOException e) {
                     // Non-fatal error, continue
                     logger.trace("{} direct artifact URL {} did not work, trying to fetch XML", dependency, artifactUrl);
@@ -185,7 +185,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             try (InputStream is = connection.getInputStream()) {
                 UrlUtils.ensureSuccessfulRequest(connection);
                 downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
-                return DownloadResult.of(dependency, artifactDownloadPath, transitive);
+                return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
             } catch (FileNotFoundException e) {
                 logger.debug("{} not found in repository {}", dependency, repository);
             } catch (IOException e) {
@@ -193,7 +193,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             }
         }
 
-        return DownloadResult.of(dependency, artifactDownloadPath, new IOException("Not found"));
+        return DownloadResult.ofFailure(dependency, artifactDownloadPath, new IOException("Not found"));
     }
 
     private List<DownloadResult> downloadTransitive(@NonNull URL artifactPomUrl) throws IOException {
@@ -335,8 +335,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         logger.debug("{} download succeeded!", dependency);
     }
 
-    @Nullable
-    private String fixupIdentifiers(@NonNull Dependency parent, @Nullable String identifier) {
+    @NonNull
+    private String fixupIdentifiers(@NonNull Dependency parent, @NonNull String identifier) {
+        Objects.requireNonNull(identifier, "Identifier cannot be null");
         // Apparently that's a thing
         if ("${project.groupId}".equalsIgnoreCase(identifier)) {
             return parent.getGroupId();
