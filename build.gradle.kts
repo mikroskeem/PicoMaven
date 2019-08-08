@@ -50,7 +50,7 @@ license {
 }
 
 val sourcesJar by tasks.creating(Jar::class) {
-    classifier = "sources"
+    archiveClassifier.set("sources")
     from(sourceSets["main"].allJava)
 }
 
@@ -58,13 +58,13 @@ val javadoc by tasks.getting(Javadoc::class)
 
 val javadocJar by tasks.creating(Jar::class) {
     dependsOn(javadoc)
-    classifier = "javadoc"
+    archiveClassifier.set("javadoc")
     from(javadoc.destinationDir)
 }
 
 
 val shadowJar by tasks.getting(ShadowJar::class) {
-    classifier = "shaded"
+    archiveClassifier.set("shaded")
 
     val targetPackage = "eu.mikroskeem.picomaven.shaded"
     val relocations = listOf(
