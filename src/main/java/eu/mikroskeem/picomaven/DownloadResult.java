@@ -30,6 +30,8 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -49,19 +51,19 @@ public final class DownloadResult {
     private final Exception downloadException;
 
     public DownloadResult(@NonNull Dependency dependency,
-                          @NonNull List<DownloadResult> transitiveDependencies,
+                          @NonNull Collection<DownloadResult> transitiveDependencies,
                           @NonNull Path artifactPath,
                           boolean success,
                           @Nullable Exception downloadException) {
         this.dependency = dependency;
-        this.transitiveDependencies = transitiveDependencies;
+        this.transitiveDependencies = new ArrayList<>(transitiveDependencies);
         this.artifactPath = artifactPath;
         this.success = success;
         this.downloadException = downloadException;
     }
 
     public DownloadResult(@NonNull Dependency dependency,
-                          @NonNull List<DownloadResult> transitiveDependencies,
+                          @NonNull Collection<DownloadResult> transitiveDependencies,
                           @NonNull Path artifactPath) {
         this(dependency, transitiveDependencies, artifactPath, true, null);
     }
@@ -134,8 +136,10 @@ public final class DownloadResult {
         return Objects.hash(dependency, artifactPath, success, downloadException);
     }
 
-    static DownloadResult of(@NonNull Dependency dependency, @NonNull Path artifactPath) {
-        return new DownloadResult(dependency, Collections.emptyList(), artifactPath);
+    static DownloadResult of(@NonNull Dependency dependency,
+                             @NonNull Path artifactPath,
+                             @NonNull Collection<DownloadResult> transitiveDependencies) {
+        return new DownloadResult(dependency, transitiveDependencies, artifactPath);
     }
 
     static DownloadResult of(@NonNull Dependency dependency, @NonNull Path artifactPath, @NonNull Exception downloadException) {

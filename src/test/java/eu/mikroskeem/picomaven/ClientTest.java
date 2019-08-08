@@ -27,6 +27,7 @@ package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.internal.DataProcessor;
+import eu.mikroskeem.picomaven.internal.SneakyThrow;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.junit.jupiter.api.Assertions;
@@ -45,6 +46,7 @@ import java.util.concurrent.Future;
  */
 public class ClientTest {
     private static final URI MAVEN_CENTRAL_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+    private static final URI MOJANG_REPOSITORY = URI.create("https://libraries.minecraft.net");
 
     private static File downloadDir;
     static {
@@ -58,20 +60,29 @@ public class ClientTest {
         try (
             PicoMaven picoMaven = new PicoMaven.Builder()
                 .withDownloadPath(downloadDir.toPath())
-                .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, UrlUtilsTest.DEFAULT_REPOSITORY2))
+                .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, MOJANG_REPOSITORY, UrlUtilsTest.DEFAULT_REPOSITORY2))
                 .withDependencies(dependencies)
                 .build()
         ) {
             Map<Dependency, Future<DownloadResult>> downloads = picoMaven.downloadAllArtifacts();
             int downloaded = 0;
             for (Future<DownloadResult> value : downloads.values()) {
-                try {
-                    DownloadResult res = value.get();
-                    if (res.isSuccess()) {
-                        downloaded++;
+                while (true) {
+                    try {
+                        DownloadResult res = value.get();
+                        if (res.isSuccess()) {
+                            downloaded++;
+                        } else {
+                            System.err.println(res);
+                        }
+                        break;
+                    } catch (InterruptedException ignored) {
+                    } catch (Exception e) {
+                        // This is here because I am lazy - I could run Gradle with --stacktrace but nyeehhh
+                        e.printStackTrace();
+                        SneakyThrow.rethrow(e);
                     }
                 }
-                catch (Exception ignored) {}
             }
 
             Assertions.assertEquals(dependencies.size(), downloaded);

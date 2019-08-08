@@ -38,6 +38,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Base64;
+import java.util.Objects;
 
 /**
  * @author Mark Vainomaa
@@ -92,9 +93,9 @@ public final class UrlUtils {
     @NonNull
     public static Path formatLocalPath(@NonNull Path parent, @NonNull Dependency dependency, @NonNull String ext) {
         return Paths.get(parent.toString(),
-                dependency.getGroupId().replace('.', '/'),
-                dependency.getArtifactId(),
-                dependency.getVersion(),
+                Objects.requireNonNull(dependency.getGroupId(), "Group id cannot be null").replace('.', '/'),
+                Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null"),
+                Objects.requireNonNull(dependency.getVersion(), "Version cannot be null"),
                 formatArtifactNameFromDependency(dependency, ext)
         );
     }

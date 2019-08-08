@@ -15,6 +15,7 @@ version = "0.0.5-SNAPSHOT"
 
 val checkerQualVersion = "2.9.0"
 val mavenMetaVersion = "3.6.1"
+val mavenModelVersion = "3.6.1"
 val slf4jApiVersion = "1.7.25"
 
 val junitVersion = "5.5.1"
@@ -33,6 +34,7 @@ repositories {
 
 dependencies {
     implementation("org.apache.maven:maven-repository-metadata:$mavenMetaVersion")
+    implementation("org.apache.maven:maven-model:$mavenModelVersion")
 
     compileOnly("org.checkerframework:checker-qual:$checkerQualVersion")
     compileOnly("org.slf4j:slf4j-api:$slf4jApiVersion")

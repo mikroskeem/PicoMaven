@@ -28,6 +28,8 @@ package eu.mikroskeem.picomaven.internal;
 import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
+import org.apache.maven.model.Model;
+import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
@@ -61,6 +63,19 @@ public final class DataProcessor {
         }
     }
 
+    @Nullable
+    public static Model getPom(@NonNull URL url) throws IOException {
+        URLConnection connection = UrlUtils.openConnection(url);
+        try (InputStream is = connection.getInputStream()) {
+            UrlUtils.ensureSuccessfulRequest(connection);
+            return new MavenXpp3Reader().read(is);
+        } catch (FileNotFoundException e) {
+            return null;
+        } catch (XmlPullParserException e) {
+            throw new IOException("Unable to parse XML", e);
+        }
+    }
+
     @NonNull
     public static CompletableFuture<@Nullable ArtifactChecksum> getArtifactChecksum(@NonNull Executor executor,
                                                                                     @NonNull URL artifactUrl,
@@ -70,7 +85,10 @@ public final class DataProcessor {
         return CompletableFuture.supplyAsync(() -> {
             URLConnection connection = SneakyThrow.get(() -> UrlUtils.openConnection(url));
             try (BufferedReader is = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-                return new ArtifactChecksum(cst, ArtifactChecksum.ChecksumEncoding.HEX, is.lines().collect(Collectors.joining()));
+                String response = is.lines().collect(Collectors.joining());
+                String[] splitted = response.split("\\s", 2);
+                String checksum = splitted.length == 2 ? splitted[0] : response;
+                return new ArtifactChecksum(cst, ArtifactChecksum.ChecksumEncoding.HEX, checksum);
             } catch (FileNotFoundException e) {
                 return null;
             } catch (IOException e) {
