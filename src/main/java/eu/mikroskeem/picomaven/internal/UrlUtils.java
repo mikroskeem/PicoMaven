@@ -47,29 +47,29 @@ public final class UrlUtils {
     @NonNull
     public static URL buildGroupMetaURL(@NonNull URL repository, @NonNull Dependency dependency) {
         return createURL(String.format("%s/%s/%s/maven-metadata.xml",
-                repository.toString(),
-                dependency.getGroupId().replace('.', '/'),
-                dependency.getArtifactId()
+                Objects.requireNonNull(repository, "Repository cannot be null").toString(),
+                Objects.requireNonNull(dependency.getGroupId(), "Group id cannot be null").replace('.', '/'),
+                Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null")
         ));
     }
 
     @NonNull
     public static URL buildArtifactMetaURL(@NonNull URL repository, @NonNull Metadata metadata, @NonNull Dependency dependency) {
         return createURL(String.format("%s/%s/%s/%s/maven-metadata.xml",
-                repository.toString(),
-                metadata.getGroupId().replace('.', '/'),
-                metadata.getArtifactId(),
-                dependency.getVersion()
+                Objects.requireNonNull(repository, "Repository cannot be null").toString(),
+                Objects.requireNonNull(metadata.getGroupId(), "Group id cannot be null").replace('.', '/'),
+                Objects.requireNonNull(metadata.getArtifactId(), "Artifact id cannot be null"),
+                Objects.requireNonNull(dependency.getVersion(), "Version cannot be null")
         ));
     }
 
     @NonNull
-    public static URL buildDirectArtifactUrl(@NonNull URL repositoryURI, @NonNull Dependency dependency, @NonNull String ext) {
+    public static URL buildDirectArtifactUrl(@NonNull URL repository, @NonNull Dependency dependency, @NonNull String ext) {
         return createURL(String.format("%s/%s/%s/%s/%s",
-                repositoryURI.toString(),
-                dependency.getGroupId().replace('.', '/'),
-                dependency.getArtifactId(),
-                dependency.getVersion(),
+                Objects.requireNonNull(repository, "Repository cannot be null").toString(),
+                Objects.requireNonNull(dependency.getGroupId(), "Group id cannot be null").replace('.', '/'),
+                Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null"),
+                Objects.requireNonNull(dependency.getVersion(), "Version cannot be null"),
                 formatArtifactNameFromDependency(dependency, ext)
         ));
     }
@@ -82,17 +82,18 @@ public final class UrlUtils {
                 formatArtifactNameFromDependency(dependency, ext);
 
         return createURL(String.format("%s/%s/%s/%s/%s",
-                repository.toString(),
-                dependency.getGroupId().replace('.', '/'),
-                dependency.getArtifactId(),
-                dependency.getVersion(),
+                Objects.requireNonNull(repository, "Repository cannot be null").toString(),
+                Objects.requireNonNull(dependency.getGroupId(), "Group id cannot be null").replace('.', '/'),
+                Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null"),
+                Objects.requireNonNull(dependency.getVersion(), "Version cannot be null"),
                 artifactFileName
         ));
     }
 
     @NonNull
     public static Path formatLocalPath(@NonNull Path parent, @NonNull Dependency dependency, @NonNull String ext) {
-        return Paths.get(parent.toString(),
+        return Paths.get(
+                Objects.requireNonNull(parent, "Parent cannot be null").toString(),
                 Objects.requireNonNull(dependency.getGroupId(), "Group id cannot be null").replace('.', '/'),
                 Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null"),
                 Objects.requireNonNull(dependency.getVersion(), "Version cannot be null"),
@@ -134,10 +135,10 @@ public final class UrlUtils {
     @NonNull
     private static String formatArtifactNameFromDependency(@NonNull Dependency dependency, @NonNull String ext) {
         return String.format("%s-%s%s.%s",
-                dependency.getArtifactId(),
-                dependency.getVersion(),
+                Objects.requireNonNull(dependency.getArtifactId(), "Artifact id cannot be null"),
+                Objects.requireNonNull(dependency.getVersion(), "Version cannot be null"),
                 (dependency.getClassifier() != null ? "-" + dependency.getClassifier() : ""),
-                ext
+                Objects.requireNonNull(ext, "ext cannot be null")
         );
     }
 
@@ -145,12 +146,12 @@ public final class UrlUtils {
     private static String formatArtifactNameFromMeta(@NonNull Dependency dependency, @NonNull Metadata metadata, @NonNull String ext) {
         if (dependency.getVersion().endsWith("-SNAPSHOT") && metadata.getVersioning().getSnapshot() != null) {
             return String.format("%s-%s-%s-%s%s.%s",
-                    metadata.getArtifactId(),
-                    metadata.getVersion().replaceAll("-SNAPSHOT", ""),
-                    metadata.getVersioning().getSnapshot().getTimestamp(),
+                    Objects.requireNonNull(metadata.getArtifactId(), "Artifact id cannot be null"),
+                    Objects.requireNonNull(metadata.getVersion(), "Version cannot be null").replace("-SNAPSHOT", ""),
+                    Objects.requireNonNull(metadata.getVersioning().getSnapshot().getTimestamp(), "Snapshot timestamp cannot be null"),
                     metadata.getVersioning().getSnapshot().getBuildNumber(),
                     (dependency.getClassifier() != null ? "-" + dependency.getClassifier() : ""),
-                    ext
+                    Objects.requireNonNull(ext, "ext cannot be null")
             );
         } else {
             return formatArtifactNameFromDependency(dependency, ext);
@@ -159,10 +160,6 @@ public final class UrlUtils {
 
     @NonNull
     private static URL createURL(@NonNull String raw) {
-        try {
-            return new URL(raw);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        return SneakyThrow.get(() -> new URL(raw));
     }
 }
