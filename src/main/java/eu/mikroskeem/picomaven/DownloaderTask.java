@@ -298,7 +298,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     break;
                 } catch (ExecutionException e) {
                     SneakyThrow.rethrow(e);
-                } catch (InterruptedException ignored) {}
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
 
             logger.trace("{} transitive dependencies download finished", dependency);
@@ -365,7 +367,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     break;
                 } catch (ExecutionException e) {
                     SneakyThrow.rethrow(e);
-                } catch (InterruptedException ignored) {}
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
 
             // Verify checksums
