@@ -48,6 +48,7 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
@@ -327,6 +328,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
     private void downloadArtifact(@NonNull Dependency dependency, @NonNull URL artifactUrl,
                                   @NonNull Path target, @NonNull InputStream is) throws IOException {
+        Path tempTarget = Paths.get(target.toAbsolutePath().toString() + ".tmp");
         Path parentPath = target.getParent();
         if (!Files.exists(parentPath)) {
             Files.createDirectories(parentPath);
@@ -389,7 +391,10 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         }
 
         // Copy
-        Files.copy(new ByteArrayInputStream(baos.toByteArray()), target, StandardCopyOption.REPLACE_EXISTING);
+        Files.copy(new ByteArrayInputStream(baos.toByteArray()), tempTarget, StandardCopyOption.REPLACE_EXISTING);
+
+        // Atomic replace
+        Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
 
         // Download success!
         logger.debug("{} download succeeded!", dependency);
