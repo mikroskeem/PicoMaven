@@ -27,6 +27,7 @@ package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
 import eu.mikroskeem.picomaven.artifact.Dependency;
+import eu.mikroskeem.picomaven.artifact.TransitiveDependencyProcessor;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -69,11 +70,12 @@ public class PicoMaven implements Closeable {
     private final List<URL> repositoryUrls;
     private final ExecutorService executorService;
     private final boolean shouldCloseExecutorService;
+    private final List<TransitiveDependencyProcessor> transitiveDependencyProcessors;
 
     public Map<@NonNull Dependency, @NonNull Future<@Nullable DownloadResult>> downloadAllArtifacts() {
         Map<Dependency, Future<DownloadResult>> tasks = new LinkedHashMap<>(dependencyList.size());
         for (final Dependency dependency : dependencyList) {
-            DownloaderTask task = new DownloaderTask(executorService, dependency, downloadPath, repositoryUrls);
+            DownloaderTask task = new DownloaderTask(executorService, dependency, downloadPath, repositoryUrls, transitiveDependencyProcessors);
             tasks.put(dependency, executorService.submit(task));
         }
 
@@ -96,12 +98,14 @@ public class PicoMaven implements Closeable {
     }
 
     private PicoMaven(Path downloadPath, List<Dependency> dependencyList, List<URL> repositoryUrls,
-                      ExecutorService executorService, boolean shouldCloseExecutorService) {
+                      ExecutorService executorService, boolean shouldCloseExecutorService,
+                      List<TransitiveDependencyProcessor> dependencyProcessors) {
         this.downloadPath = downloadPath;
         this.dependencyList = dependencyList;
         this.repositoryUrls = repositoryUrls;
         this.executorService = executorService;
         this.shouldCloseExecutorService = shouldCloseExecutorService;
+        this.transitiveDependencyProcessors = dependencyProcessors;
     }
 
     /**
@@ -113,6 +117,7 @@ public class PicoMaven implements Closeable {
         private List<URL> repositories = null;
         private ExecutorService executorService = null;
         private boolean shouldCloseExecutorService = false;
+        private List<TransitiveDependencyProcessor> dependencyProcessors = null;
 
         /**
          * Set download path
@@ -200,6 +205,12 @@ public class PicoMaven implements Closeable {
             return this;
         }
 
+        @NonNull
+        public Builder withTransitiveDependencyProcessors(List<TransitiveDependencyProcessor> dependencyProcessors) {
+            this.dependencyProcessors = Collections.unmodifiableList(new ArrayList<>(dependencyProcessors));
+            return this;
+        }
+
         /**
          * Build {@link PicoMaven} instance
          *
@@ -222,8 +233,9 @@ public class PicoMaven implements Closeable {
                 });
                 shouldCloseExecutorService = true;
             }
+            if (dependencyProcessors == null) dependencyProcessors = Collections.emptyList();
             return new PicoMaven(downloadPath, dependencies, new ArrayList<>(repositories),
-                    executorService, shouldCloseExecutorService);
+                    executorService, shouldCloseExecutorService, dependencyProcessors);
         }
     }
 }

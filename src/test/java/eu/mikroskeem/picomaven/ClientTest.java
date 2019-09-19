@@ -62,6 +62,18 @@ public class ClientTest {
                 .withDownloadPath(downloadDir.toPath())
                 .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, MOJANG_REPOSITORY, UrlUtilsTest.DEFAULT_REPOSITORY2))
                 .withDependencies(dependencies)
+                .withTransitiveDependencyProcessors(Arrays.asList(
+                        dep -> {
+                            if ("org.apache.logging.log4j".equalsIgnoreCase(dep.getGroupId()))
+                                dep.setAllowed(false);
+                            if ("commons-io".equalsIgnoreCase(dep.getGroupId()))
+                                dep.setAllowed(false);
+                            if (dep.getGroupId() != null && dep.getGroupId().startsWith("net."))
+                                dep.setAllowed(false);
+                            if (dep.getGroupId() != null && dep.getGroupId().startsWith("com.google"))
+                                dep.setAllowed(false);
+                        }
+                ))
                 .build()
         ) {
             Map<Dependency, Future<DownloadResult>> downloads = picoMaven.downloadAllArtifacts();

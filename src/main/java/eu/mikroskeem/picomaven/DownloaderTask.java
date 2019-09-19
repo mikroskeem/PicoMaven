@@ -27,6 +27,7 @@ package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
 import eu.mikroskeem.picomaven.artifact.Dependency;
+import eu.mikroskeem.picomaven.artifact.TransitiveDependencyProcessor;
 import eu.mikroskeem.picomaven.internal.DataProcessor;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
@@ -80,32 +81,35 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     // Whether dependency downloading failure is fatal or not
     private final boolean optional;
     private final Set<URL> repositoryUrls;
+    private final List<TransitiveDependencyProcessor> transitiveDependencyProcessors;
     private final Deque<Future<DownloadResult>> transitiveDownloads;
 
     private final boolean isChild;
 
-    public DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath, List<URL> repositoryUrls) {
+    public DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath, List<URL> repositoryUrls,
+                          List<TransitiveDependencyProcessor> dependencyProcessors) {
         this(executorService, dependency, downloadPath,
                 Collections.synchronizedSet(new HashSet<>(repositoryUrls)),
                 false,
-                new ConcurrentLinkedDeque<>(), false);
+                new ConcurrentLinkedDeque<>(), dependencyProcessors, false);
     }
 
     private DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath,
                            Set<URL> repositoryUrls, boolean optional, Deque<Future<DownloadResult>> transitiveDownloads,
-                           boolean isChild) {
+                           List<TransitiveDependencyProcessor> dependencyProcessors, boolean isChild) {
         this.executorService = executorService;
         this.dependency = dependency;
         this.downloadPath = downloadPath;
         this.optional = optional;
         this.repositoryUrls = repositoryUrls;
         this.transitiveDownloads = transitiveDownloads;
+        this.transitiveDependencyProcessors = dependencyProcessors;
         this.isChild = isChild;
     }
 
     private DownloaderTask(DownloaderTask parent, Dependency dependency, boolean optional) {
         this(parent.executorService, dependency, parent.downloadPath, parent.repositoryUrls,
-                optional, parent.transitiveDownloads, true);
+                optional, parent.transitiveDownloads, parent.transitiveDependencyProcessors, true);
     }
 
     @Override
@@ -255,18 +259,36 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
                 transitive = new ArrayList<>(model.getDependencies().size());
                 for (org.apache.maven.model.Dependency modelDependency : model.getDependencies()) {
+                    // Apply filters
+                    TransitiveDependencyProcessor.DownloadableTransitiveDependency dep = new TransitiveDependencyProcessor.DownloadableTransitiveDependency(
+                            dependency,
+                            modelDependency.getGroupId(),
+                            modelDependency.getArtifactId(),
+                            modelDependency.getVersion(),
+                            modelDependency.getClassifier(),
+                            modelDependency.getScope(),
+                            "true".equalsIgnoreCase(modelDependency.getOptional())
+                    );
+                    for (TransitiveDependencyProcessor processor : this.transitiveDependencyProcessors) {
+                        processor.accept(dep);
+                    }
+
+                    // Filtered, do not download
+                    if (!dep.isAllowed()) {
+                        continue;
+                    }
+
                     // Ignore certain scopes
-                    if (!DataProcessor.RELEVANT_SCOPE_PREDICATE.test(modelDependency)) {
+                    if (!DataProcessor.RELEVANT_STRING_SCOPE_PREDICATE.test(dep.getScope())) {
                         continue;
                     }
 
                     // Build PicoMaven dependency object
-                    boolean transitiveOptional = "true".equalsIgnoreCase(modelDependency.getOptional());
                     Dependency transitiveDependency = new Dependency(
-                            fixupIdentifiers(dependency, modelDependency.getGroupId()),
-                            modelDependency.getArtifactId(),
-                            fixupIdentifiers(dependency, modelDependency.getVersion()),
-                            modelDependency.getClassifier(),
+                            fixupIdentifiers(dependency, dep.getGroupId()),
+                            dep.getArtifactId(),
+                            fixupIdentifiers(dependency, dep.getVersion()),
+                            dep.getClassifier(),
                             true,
                             Collections.emptyList()
                     );
@@ -283,7 +305,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
                     logger.debug("{} requires transitive dependency {}", dependency, transitiveDependency);
 
-                    DownloaderTask task = new DownloaderTask(this, transitiveDependency, transitiveOptional);
+                    DownloaderTask task = new DownloaderTask(this, transitiveDependency, dep.isOptional());
                     Future<DownloadResult> future = executorService.submit(task);
                     transitiveDownloads.add(future);
                     transitive.add(future);

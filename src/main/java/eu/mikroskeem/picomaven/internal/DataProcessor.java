@@ -130,9 +130,8 @@ public final class DataProcessor {
         return artifactChecksum.getEncoding().verify(md, artifactChecksum.getChecksum());
     }
 
-    public static final Predicate<Dependency> RELEVANT_SCOPE_PREDICATE = dependency -> {
-        String scope;
-        if ((scope = dependency.getScope()) == null) {
+    public static final Predicate<String> RELEVANT_STRING_SCOPE_PREDICATE = scope -> {
+        if (scope == null) {
             // "compile - this is the default scope, used if none is specified."
             // - https://maven.apache.org/pom.html#Dependencies
             return true;
@@ -144,4 +143,7 @@ public final class DataProcessor {
                 // classloader.
                 && !scope.equalsIgnoreCase("system");
     };
+
+    public static final Predicate<Dependency> RELEVANT_SCOPE_PREDICATE = dependency ->
+            RELEVANT_STRING_SCOPE_PREDICATE.test(dependency.getScope());
 }
