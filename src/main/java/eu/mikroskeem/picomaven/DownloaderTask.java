@@ -277,7 +277,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                         Objects.requireNonNull(transitiveDependency.getArtifactId(), "Artifact id cannot be null");
                         Objects.requireNonNull(transitiveDependency.getVersion(), "Version cannot be null");
                     } catch (NullPointerException e) {
-                        logger.warn("{} transitive dependency {} is invalid: {}", dependency, transitive, e.getMessage());
+                        logger.warn("{} transitive dependency {} is invalid: {}", dependency, transitiveDependency, e.getMessage());
                         continue;
                     }
 
