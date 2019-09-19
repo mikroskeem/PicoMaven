@@ -49,6 +49,7 @@ public final class DownloadResult {
 
     private final Path artifactPath;
     private final boolean success;
+    private final boolean optional;
     private final Exception downloadException;
 
     @MonotonicNonNull
@@ -58,11 +59,13 @@ public final class DownloadResult {
                           @NonNull Collection<DownloadResult> transitiveDependencies,
                           @NonNull Path artifactPath,
                           boolean success,
+                          boolean optional,
                           @Nullable Exception downloadException) {
         this.dependency = dependency;
         this.transitiveDependencies = new ArrayList<>(transitiveDependencies);
         this.artifactPath = artifactPath;
         this.success = success;
+        this.optional = optional;
         this.downloadException = downloadException;
     }
 
@@ -82,6 +85,9 @@ public final class DownloadResult {
                     files.add(getArtifactPath());
 
                     for (DownloadResult transitiveDependency : getTransitiveDependencies()) {
+                        if (!transitiveDependency.isSuccess()) {
+                            continue;
+                        }
                         files.addAll(transitiveDependency.getAllDownloadedFiles());
                     }
                 }
@@ -131,6 +137,15 @@ public final class DownloadResult {
     }
 
     /**
+     * Returns whether this dependency was optional or not
+     *
+     * @return Whether this dependency was optional or not
+     */
+    public boolean isOptional() {
+        return optional;
+    }
+
+    /**
      * Gets download exception associated with this download result. It's
      * only present when {@link #isSuccess()} is {@code false}
      *
@@ -170,11 +185,15 @@ public final class DownloadResult {
 
     static DownloadResult ofSuccess(@NonNull Dependency dependency,
                                     @NonNull Path artifactPath,
+                                    boolean optional,
                                     @NonNull Collection<DownloadResult> transitiveDependencies) {
-        return new DownloadResult(dependency, transitiveDependencies, artifactPath, true, null);
+        return new DownloadResult(dependency, transitiveDependencies, artifactPath, true, optional, null);
     }
 
-    static DownloadResult ofFailure(@NonNull Dependency dependency, @NonNull Path artifactPath, @NonNull Exception downloadException) {
-        return new DownloadResult(dependency, Collections.emptyList(), artifactPath, false, downloadException);
+    static DownloadResult ofFailure(@NonNull Dependency dependency,
+                                    @NonNull Path artifactPath,
+                                    boolean optional,
+                                    @NonNull Exception downloadException) {
+        return new DownloadResult(dependency, Collections.emptyList(), artifactPath, false, optional, downloadException);
     }
 }

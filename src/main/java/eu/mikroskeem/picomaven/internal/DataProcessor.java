@@ -28,8 +28,10 @@ package eu.mikroskeem.picomaven.internal;
 import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.artifact.repository.metadata.io.xpp3.MetadataXpp3Reader;
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
+import org.apache.maven.model.io.xpp3.MavenXpp3Writer;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
@@ -39,11 +41,13 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.Writer;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.MessageDigest;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -76,6 +80,27 @@ public final class DataProcessor {
         }
     }
 
+    public static void serializeModel(@NonNull Model model, @NonNull Writer w, boolean sanitize) throws IOException {
+        MavenXpp3Writer writer = new MavenXpp3Writer();
+        writer.setFileComment("Written by PicoMaven\n");
+        if (sanitize) {
+            // Copy only relevant data
+            Model copy = new Model();
+            copy.setModelVersion(model.getModelVersion());
+            copy.setModelEncoding(model.getModelEncoding());
+            copy.setGroupId(model.getGroupId());
+            copy.setArtifactId(model.getArtifactId());
+            copy.setVersion(model.getVersion());
+            copy.setDependencies(model.getDependencies().stream().filter(RELEVANT_SCOPE_PREDICATE).collect(Collectors.toList()));
+            copy.setRepositories(model.getRepositories());
+
+            model = copy;
+        }
+
+
+        writer.write(w, model);
+    }
+
     @NonNull
     public static CompletableFuture<@Nullable ArtifactChecksum> getArtifactChecksum(@NonNull Executor executor,
                                                                                     @NonNull URL artifactUrl,
@@ -103,4 +128,19 @@ public final class DataProcessor {
         md.update(data);
         return artifactChecksum.getEncoding().verify(md, artifactChecksum.getChecksum());
     }
+
+    public static final Predicate<Dependency> RELEVANT_SCOPE_PREDICATE = dependency -> {
+        String scope;
+        if ((scope = dependency.getScope()) == null) {
+            // "compile - this is the default scope, used if none is specified."
+            // - https://maven.apache.org/pom.html#Dependencies
+            return true;
+        }
+        return !scope.equalsIgnoreCase("test")
+                && !scope.equalsIgnoreCase("provided")
+                // Personally I think that system dependencies don't fit into
+                // PicoMaven's purpose. You may add system dependencies yourself to
+                // classloader.
+                && !scope.equalsIgnoreCase("system");
+    };
 }

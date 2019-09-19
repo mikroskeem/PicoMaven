@@ -34,9 +34,11 @@ import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Repository;
 import org.checkerframework.checker.nullness.qual.NonNull;
+import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
@@ -47,10 +49,12 @@ import java.net.URLConnection;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -60,7 +64,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
-import java.util.stream.Collectors;
 
 import static eu.mikroskeem.picomaven.PicoMaven.REMOTE_CHECKSUM_ALGOS;
 
@@ -73,6 +76,8 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     private final ExecutorService executorService;
     private final Dependency dependency;
     private final Path downloadPath;
+    // Whether dependency downloading failure is fatal or not
+    private final boolean optional;
     private final Set<URL> repositoryUrls;
     private final Deque<Future<DownloadResult>> transitiveDownloads;
 
@@ -81,22 +86,25 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     public DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath, List<URL> repositoryUrls) {
         this(executorService, dependency, downloadPath,
                 Collections.synchronizedSet(new HashSet<>(repositoryUrls)),
+                false,
                 new ConcurrentLinkedDeque<>(), false);
     }
 
     private DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath,
-                           Set<URL> repositoryUrls, Deque<Future<DownloadResult>> transitiveDownloads,
+                           Set<URL> repositoryUrls, boolean optional, Deque<Future<DownloadResult>> transitiveDownloads,
                            boolean isChild) {
         this.executorService = executorService;
         this.dependency = dependency;
         this.downloadPath = downloadPath;
+        this.optional = optional;
         this.repositoryUrls = repositoryUrls;
         this.transitiveDownloads = transitiveDownloads;
         this.isChild = isChild;
     }
 
-    private DownloaderTask(DownloaderTask parent, Dependency dependency) {
-        this(parent.executorService, dependency, parent.downloadPath, parent.repositoryUrls, parent.transitiveDownloads, true);
+    private DownloaderTask(DownloaderTask parent, Dependency dependency, boolean optional) {
+        this(parent.executorService, dependency, parent.downloadPath, parent.repositoryUrls,
+                optional, parent.transitiveDownloads, true);
     }
 
     @Override
@@ -104,101 +112,135 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         logger.trace("Trying to download dependency {}", dependency);
         Path artifactPomDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "pom");
         Path artifactDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "jar");
+        List<DownloadResult> transitive = new LinkedList<>();
         URL artifactPomUrl;
         URL artifactUrl;
-        List<DownloadResult> transitive = Collections.emptyList();
 
-        if (Files.exists(artifactDownloadPath)) {
-            logger.debug("{} is already downloaded", dependency);
+        try {
+            // Check if artifact already exists
+            if (Files.exists(artifactDownloadPath)) {
+                logger.debug("{} is already downloaded", dependency);
 
-            if (Files.exists(artifactPomDownloadPath) && dependency.isTransitive()) {
-                transitive = downloadTransitive(artifactPomDownloadPath.toUri().toURL());
+                if (Files.exists(artifactPomDownloadPath) && dependency.isTransitive()) {
+                    transitive = downloadTransitive(null, artifactPomDownloadPath.toUri().toURL());
+                }
+                return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
             }
-            return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
-        }
 
-        // Iterate through repositories until an artifact is found
-        for (URL repository : repositoryUrls) {
-            logger.debug("Trying repository {} for {}", repository, dependency);
-            Metadata groupMetadata = null;
-            Metadata artifactMetadata = null;
-            URLConnection connection = null;
+            // Iterate through repositories until the artifact is found
+            for (URL repository : repositoryUrls) {
+                logger.debug("Trying repository {} for {}", repository, dependency);
+                Metadata groupMetadata = null;
+                Metadata artifactMetadata = null;
+                URLConnection connection = null;
 
-            // Do dumb check whether we can download artifact without parsing XML at all
-            if (!dependency.getVersion().endsWith("-SNAPSHOT")) {
-                if (dependency.isTransitive()) {
+                // Do dumb check whether we can download artifact without parsing XML at all
+                if (!dependency.getVersion().endsWith("-SNAPSHOT")) {
+                    logger.trace("Attempting to download artifact without parsing XML");
                     artifactPomUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "pom");
-                    try {
-                        logger.trace("{} direct artifact POM URL: {}", dependency, artifactPomUrl);
-                        transitive = downloadTransitive(artifactPomUrl);
+                    artifactUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "jar");
+
+                    downloadDependency(repository, artifactPomUrl, artifactUrl, transitive);
+                    if (dependency.isTransitive()) {
+                        try {
+                            logger.trace("{} direct artifact POM URL: {}", dependency, artifactPomUrl);
+                            transitive = downloadTransitive(artifactPomDownloadPath, artifactPomUrl);
+                        } catch (FileNotFoundException e) {
+                            logger.trace("{} direct artifact POM not found", dependency);
+                        } catch (IOException e) {
+                            logger.warn("Failed to download {} POM: {}", dependency, e.getMessage());
+                        }
+                    }
+
+
+                    logger.trace("{} direct artifact URL: {}", dependency, artifactUrl);
+                    connection = UrlUtils.openConnection(artifactUrl);
+                    try (InputStream is = connection.getInputStream()) {
+                        UrlUtils.ensureSuccessfulRequest(connection);
+                        downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
+                        return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
                     } catch (IOException e) {
-                        logger.trace("{} direct artifact POM not found", dependency);
+                        // Non-fatal error, continue
+                        logger.trace("{} direct artifact URL {} did not work, trying to fetch XML", dependency, artifactUrl);
                     }
                 }
 
-                connection = UrlUtils.openConnection((artifactUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "jar")));
-                logger.trace("{} direct artifact URL: {}", dependency, artifactUrl);
-                try (InputStream is = connection.getInputStream()) {
-                    UrlUtils.ensureSuccessfulRequest(connection);
-                    downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
-                    return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
-                } catch (IOException e) {
-                    // Non-fatal error, continue
-                    logger.trace("{} direct artifact URL {} did not work, trying to fetch XML", dependency, artifactUrl);
-                }
-            }
-
-            // Try to find group metadata xml and grab artifact metadata xml URL from it
-            URL groupMetaURI = UrlUtils.buildGroupMetaURL(repository, dependency);
-            logger.trace("{} group meta URL: {}", dependency, groupMetaURI);
-            try {
-                if ((groupMetadata = DataProcessor.getMetadata(groupMetaURI)) != null) {
-                    URL artifactMetaURI = UrlUtils.buildArtifactMetaURL(repository, groupMetadata, dependency);
-                    logger.trace("{} artifact meta URL: {}", dependency, artifactMetaURI);
-                    artifactMetadata = DataProcessor.getMetadata(artifactMetaURI);
-                } else {
-                    throw new FileNotFoundException();
-                }
-            } catch (FileNotFoundException e) {
-                logger.debug("{} not found in repository {}", dependency, repository);
-                continue;
-            } catch (IOException e) {
-                // Skip this repository
-                continue;
-            }
-
-            // Figure out artifact URL and attempt to download it
-            artifactPomUrl = UrlUtils.buildArtifactURL(repository, artifactMetadata, dependency, "pom");
-            artifactUrl = UrlUtils.buildArtifactURL(repository, artifactMetadata, dependency, "jar");
-            if (dependency.isTransitive()) {
+                // Try to find group metadata xml and grab artifact metadata xml URL from it
+                URL groupMetaURI = UrlUtils.buildGroupMetaURL(repository, dependency);
+                logger.trace("{} group meta URL: {}", dependency, groupMetaURI);
                 try {
-                    logger.trace("Downloading {} POM from {}", dependency, artifactPomUrl);
-                    transitive = downloadTransitive(artifactPomUrl);
+                    if ((groupMetadata = DataProcessor.getMetadata(groupMetaURI)) != null) {
+                        URL artifactMetaURI = UrlUtils.buildArtifactMetaURL(repository, groupMetadata, dependency);
+                        logger.trace("{} artifact meta URL: {}", dependency, artifactMetaURI);
+                        artifactMetadata = DataProcessor.getMetadata(artifactMetaURI);
+                    } else {
+                        throw new FileNotFoundException();
+                    }
+                } catch (FileNotFoundException e) {
+                    logger.debug("{} not found in repository {}", dependency, repository);
+                    continue;
                 } catch (IOException e) {
-                    logger.trace("{} POM not found", dependency);
+                    // Skip this repository
+                    continue;
                 }
+
+                // Figure out artifact URL and attempt to download it
+                artifactPomUrl = UrlUtils.buildArtifactURL(repository, artifactMetadata, dependency, "pom");
+                artifactUrl = UrlUtils.buildArtifactURL(repository, artifactMetadata, dependency, "jar");
+                return downloadDependency(repository, artifactPomUrl, artifactUrl, null);
             }
 
-            logger.trace("Downloading {} from {}", dependency, artifactUrl);
-            connection = UrlUtils.openConnection(artifactUrl);
-            try (InputStream is = connection.getInputStream()) {
-                UrlUtils.ensureSuccessfulRequest(connection);
-                downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
-                return DownloadResult.ofSuccess(dependency, artifactDownloadPath, transitive);
+            // No repositories left to try
+            throw new IOException("Not found");
+        } catch (Exception e) {
+            return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
+        }
+    }
+
+    private DownloadResult downloadDependency(URL repository, URL artifactPomUrl, URL artifactUrl, List<DownloadResult> transitive) throws IOException {
+        Path artifactPomDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "pom");
+        Path artifactDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "jar");
+        List<DownloadResult> dependencyTransitiveDownloads = Collections.emptyList();
+
+        if (dependency.isTransitive()) {
+            try {
+                logger.trace("Downloading {} POM from {}", dependency, artifactPomUrl);
+                dependencyTransitiveDownloads = downloadTransitive(artifactPomDownloadPath, artifactPomUrl);
             } catch (FileNotFoundException e) {
-                logger.debug("{} not found in repository {}", dependency, repository);
+                logger.trace("{} POM not found", dependency);
             } catch (IOException e) {
-                logger.debug("{} download failed!", dependency);
+                logger.warn("Failed to download {} POM: {}", dependency, e.getMessage());
             }
         }
 
-        return DownloadResult.ofFailure(dependency, artifactDownloadPath, new IOException("Not found"));
+        logger.trace("Downloading {} from {}", dependency, artifactUrl);
+        URLConnection connection = UrlUtils.openConnection(artifactUrl);
+        try (InputStream is = connection.getInputStream()) {
+            UrlUtils.ensureSuccessfulRequest(connection);
+            downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
+            return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, dependencyTransitiveDownloads);
+        } catch (FileNotFoundException e) {
+            logger.debug("{} not found in repository {}", dependency, repository);
+            return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
+        } catch (IOException e) {
+            logger.debug("{} download failed!", dependency);
+            return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
+        }
     }
 
-    private List<DownloadResult> downloadTransitive(@NonNull URL artifactPomUrl) throws IOException {
+    @NonNull
+    private List<DownloadResult> downloadTransitive(@Nullable Path pomPath, @NonNull URL artifactPomUrl) throws IOException {
         List<Future<DownloadResult>> transitive = Collections.emptyList();
         Model model;
         if ((model = DataProcessor.getPom(artifactPomUrl)) != null) {
+            // Write model to disk
+            if (pomPath != null) {
+                Files.createDirectories(pomPath.getParent());
+                try (BufferedWriter w = Files.newBufferedWriter(pomPath, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+                    DataProcessor.serializeModel(model, w, true);
+                }
+            }
+
             // Grab all dependencies
             if (!model.getDependencies().isEmpty()) {
                 // Add all repositories from transitive POM
@@ -213,12 +255,12 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                 transitive = new ArrayList<>(model.getDependencies().size());
                 for (org.apache.maven.model.Dependency modelDependency : model.getDependencies()) {
                     // Ignore certain scopes
-                    String scope = modelDependency.getScope() != null ? modelDependency.getScope() : "compile";
-                    if (scope.equalsIgnoreCase("test") || scope.equalsIgnoreCase("provided")) {
+                    if (!DataProcessor.RELEVANT_SCOPE_PREDICATE.test(modelDependency)) {
                         continue;
                     }
 
                     // Build PicoMaven dependency object
+                    boolean transitiveOptional = "true".equalsIgnoreCase(modelDependency.getOptional());
                     Dependency transitiveDependency = new Dependency(
                             fixupIdentifiers(dependency, modelDependency.getGroupId()),
                             modelDependency.getArtifactId(),
@@ -240,9 +282,10 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
                     logger.debug("{} requires transitive dependency {}", dependency, transitiveDependency);
 
-                    Future<DownloadResult> task = executorService.submit(new DownloaderTask(this, transitiveDependency));
-                    transitiveDownloads.add(task);
-                    transitive.add(task);
+                    DownloaderTask task = new DownloaderTask(this, transitiveDependency, transitiveOptional);
+                    Future<DownloadResult> future = executorService.submit(task);
+                    transitiveDownloads.add(future);
+                    transitive.add(future);
                 }
             }
 
@@ -260,7 +303,21 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
             logger.trace("{} transitive dependencies download finished", dependency);
 
-            return transitive.stream().map(f -> SneakyThrow.get(f::get)).collect(Collectors.toList());
+            // Collect download results
+            List<DownloadResult> downloads = new ArrayList<>(transitive.size());
+            for (Future<DownloadResult> future : transitive) {
+                DownloadResult res = SneakyThrow.get(future::get);
+
+                if (!res.isSuccess()) {
+                    if (res.isOptional()) {
+                        continue;
+                    }
+                    logger.trace("Failed to download {}: {}", res.getDependency(), res.getDownloadException().getMessage());
+                }
+                downloads.add(res);
+            }
+
+            return downloads;
         } else {
             throw new FileNotFoundException();
         }
@@ -343,5 +400,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             return parent.getVersion();
         }
         return identifier;
+    }
+
+    private static class TransitiveDependencyNotFoundException extends Exception {
+
     }
 }
