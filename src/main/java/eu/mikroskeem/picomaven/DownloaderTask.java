@@ -192,7 +192,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
             // No repositories left to try
             throw new IOException("Not found");
-        } catch (Exception e) {
+        } catch (IOException e) {
             return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
         }
     }
