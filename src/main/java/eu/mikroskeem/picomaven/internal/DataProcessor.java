@@ -110,9 +110,10 @@ public final class DataProcessor {
         return CompletableFuture.supplyAsync(() -> {
             URLConnection connection = SneakyThrow.get(() -> UrlUtils.openConnection(url));
             try (BufferedReader is = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-                String response = is.lines().collect(Collectors.joining());
-                String[] splitted = response.split("\\s", 2);
-                String checksum = splitted.length == 2 ? splitted[0] : response;
+                UrlUtils.ensureSuccessfulRequest(connection);
+                String response = is.lines().collect(Collectors.joining("\n"));
+                String[] parts = response.split("\\s", 2); // Checksum could be in '<checksum> <filename>' format, e.g what GNU coreutils output.
+                String checksum = parts.length == 2 ? parts[0] : response;
                 return new ArtifactChecksum(cst, ArtifactChecksum.ChecksumEncoding.HEX, checksum);
             } catch (FileNotFoundException e) {
                 return null;
