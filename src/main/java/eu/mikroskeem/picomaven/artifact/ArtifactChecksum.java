@@ -32,7 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Base64;
 import java.util.Objects;
-import java.util.function.BiFunction;
+import java.util.function.BiPredicate;
 
 /**
  * An artifact checksum
@@ -215,9 +215,9 @@ public final class ArtifactChecksum {
         }),
         ;
 
-        private final BiFunction<MessageDigest, String, Boolean> verifier;
+        private final BiPredicate<MessageDigest, String> verifier;
 
-        ChecksumEncoding(@NonNull BiFunction<MessageDigest, String, Boolean> verifier) {
+        ChecksumEncoding(@NonNull BiPredicate<MessageDigest, String> verifier) {
             this.verifier = verifier;
         }
 
@@ -229,7 +229,7 @@ public final class ArtifactChecksum {
          * @return Whether checksums match or not
          */
         public boolean verify(@NonNull MessageDigest md, @NonNull String checksum) {
-            return verifier.apply(md, checksum);
+            return verifier.test(md, checksum);
         }
     }
 }
