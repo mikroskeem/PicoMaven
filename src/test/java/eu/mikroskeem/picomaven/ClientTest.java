@@ -30,13 +30,15 @@ import eu.mikroskeem.picomaven.internal.DataProcessor;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
-import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Future;
@@ -45,13 +47,24 @@ import java.util.concurrent.Future;
  * @author Mark Vainomaa
  */
 public class ClientTest {
-    private static final URI MAVEN_CENTRAL_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
-    private static final URI MOJANG_REPOSITORY = URI.create("https://libraries.minecraft.net");
-
     private static File downloadDir;
-    static {
+    private static RepositoryServer server;
+
+    @BeforeAll
+    private static void before() {
         downloadDir = new File("./target/_downloadTest" + Math.random());
         downloadDir.mkdirs();
+
+        File repoDir = new File("./target/_downloadTest_repo" + Math.random());
+        server = new RepositoryServer(repoDir.toPath());
+
+        // Set up repository server contents
+        // TODO
+    }
+
+    @AfterAll
+    private static void after() {
+        server.stop();
     }
 
     @Test
@@ -60,7 +73,7 @@ public class ClientTest {
         try (
             PicoMaven picoMaven = new PicoMaven.Builder()
                 .withDownloadPath(downloadDir.toPath())
-                .withRepositories(Arrays.asList(MAVEN_CENTRAL_REPOSITORY, MOJANG_REPOSITORY, UrlUtilsTest.DEFAULT_REPOSITORY2))
+                .withRepositoryURLs(Collections.singletonList(server.getRepositoryURL()))
                 .withDependencies(dependencies)
                 .withTransitiveDependencyProcessors(Arrays.asList(
                         dep -> {

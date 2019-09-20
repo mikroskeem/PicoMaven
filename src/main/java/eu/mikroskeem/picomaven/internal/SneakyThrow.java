@@ -48,7 +48,19 @@ public final class SneakyThrow {
         return null;
     }
 
+    public static <E extends Throwable> void run(@NonNull ThrowingRunnable<E> runnable) {
+        try {
+            runnable.run();
+        } catch (Throwable t) {
+            rethrow(t);
+        }
+    }
+
     public interface ThrowingSupplier<T, E extends Throwable> {
         T get() throws E;
+    }
+
+    public interface ThrowingRunnable<E extends Throwable> {
+        void run() throws E;
     }
 }

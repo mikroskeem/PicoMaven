@@ -19,6 +19,7 @@ val mavenModelVersion = "3.6.1"
 val slf4jApiVersion = "1.7.25"
 
 val junitVersion = "5.5.1"
+val nanoHttpdVersion = "2.2.0"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
@@ -39,6 +40,7 @@ dependencies {
 
     compileOnly("org.checkerframework:checker-qual:$checkerQualVersion")
 
+    testImplementation("org.nanohttpd:nanohttpd:$nanoHttpdVersion")
     testImplementation("org.junit.jupiter:junit-jupiter-api:$junitVersion")
     testRuntime("org.junit.jupiter:junit-jupiter-engine:$junitVersion")
     testRuntime("org.slf4j:slf4j-simple:$slf4jApiVersion")
