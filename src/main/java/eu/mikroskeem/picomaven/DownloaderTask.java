@@ -240,10 +240,13 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         if ((model = DataProcessor.getPom(artifactPomUrl)) != null) {
             // Write model to disk
             if (pomPath != null) {
+                Path pomPathTemp = Paths.get(pomPath.toAbsolutePath().toString() + ".tmp");
                 Files.createDirectories(pomPath.getParent());
-                try (BufferedWriter w = Files.newBufferedWriter(pomPath, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
+                try (BufferedWriter w = Files.newBufferedWriter(pomPathTemp, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                     DataProcessor.serializeModel(model, w, true);
                 }
+
+                Files.move(pomPathTemp, pomPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
             }
 
             // Grab all dependencies
