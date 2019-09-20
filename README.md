@@ -7,7 +7,26 @@ Download libraries from Maven repositories before app start
 ## How to use?
 
 ```java
+package my.app;
+
+import eu.mikroskeem.picomaven.artifact.Dependency;
+
+import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
+
 public class MyApp {
+    private final static URI MAVEN_CENTRAL_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
+
     public static void main(String... args) {
         List<Dependency> dependencies = Arrays.asList(
                 new Dependency("org.ow2.asm", "asm-all", "5.2"),
@@ -15,22 +34,42 @@ public class MyApp {
         );
         PicoMaven.Builder picoMavenBase = new PicoMaven.Builder()
                 .withDownloadPath(Paths.get(".", "libraries"))
-                .withRepositories(Collections.singletonList(Constants.MAVEN_CENTRAL_REPOSITORY))
+                .withRepositories(Collections.singletonList(MAVEN_CENTRAL_REPOSITORY))
                 .withDependencies(dependencies);
-        
-        try(PicoMaven picoMaven = picoMavenBase.build()) {
-            List<Path> downloaded = picoMaven.downloadAll();
-            URL[] urls = downloaded.stream().map(MyApp::conv).collect(Collectors.toList()).toArray(new URL[0]);
+
+        try (PicoMaven picoMaven = picoMavenBase.build()) {
+            List<Path> downloaded = new LinkedList<>();
+            picoMaven.downloadAllArtifacts().values().stream().map(MyApp::getFuture).forEach(downloadResult -> {
+                if (downloadResult.isSuccess()) {
+                    downloaded.add(downloadResult.getArtifactPath());
+                }
+            });
             
+            URL[] urls = downloaded.stream().map(MyApp::conv).collect(Collectors.toList()).toArray(new URL[0]);
             URLClassLoader ucl = URLClassLoader.newInstance(urls);
             
-            
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+            // Do your things with UCL
+        }
+    }
+
+    private static <T> T getFuture(Future<T> future) {
+        while (true) {
+            try {
+                return future.get();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         }
     }
     
-    @SneakyThrows(MalformedURLException.class)
-    private static URL conv(Path path){ return path.toUri().toURL(); }
+    private static URL conv(Path path) {
+        try {
+            return path.toUri().toURL();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
 ```
