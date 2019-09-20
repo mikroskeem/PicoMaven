@@ -128,7 +128,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                 logger.debug("{} is already downloaded", dependency);
 
                 if (Files.exists(artifactPomDownloadPath) && dependency.isTransitive()) {
-                    transitive = downloadTransitive(null, artifactPomDownloadPath.toUri().toURL());
+                    transitive.addAll(downloadTransitive(null, artifactPomDownloadPath.toUri().toURL()));
                 }
                 return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
             }
@@ -138,7 +138,6 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                 logger.debug("Trying repository {} for {}", repository, dependency);
                 Metadata groupMetadata = null;
                 Metadata artifactMetadata = null;
-                URLConnection connection = null;
 
                 // Do dumb check whether we can download artifact without parsing XML at all
                 if (!dependency.getVersion().endsWith("-SNAPSHOT")) {
@@ -146,9 +145,8 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     artifactPomUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "pom");
                     artifactUrl = UrlUtils.buildDirectArtifactUrl(repository, dependency, "jar");
 
-                    DownloadResult result;
                     try {
-                        result = downloadDependency(repository, artifactPomUrl, artifactUrl, transitive);
+                        DownloadResult result = downloadDependency(repository, artifactPomUrl, artifactUrl, transitive);
                         if (!result.isSuccess() && result.getDownloadException() != null) {
                             throw result.getDownloadException();
                         }
