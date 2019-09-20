@@ -9,6 +9,7 @@ Download libraries from Maven repositories before app start
 ```java
 package my.app;
 
+import eu.mikroskeem.picomaven.PicoMaven;
 import eu.mikroskeem.picomaven.artifact.Dependency;
 
 import java.net.URI;
