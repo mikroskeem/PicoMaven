@@ -40,7 +40,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -355,18 +354,13 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         }
 
         // Copy artifact into memory
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] buf = new byte[4096];
-        int b;
-        while ((b = is.read(buf, 0, buf.length)) != -1) {
-            baos.write(buf, 0, b);
-        }
+        byte[] artifactBytes = readBytes(is);
 
         // Check specified checksums
         if (!dependency.getChecksums().isEmpty()) {
             logger.trace("{} has checksums set, using them to check consistency", dependency);
             for (ArtifactChecksum checksum : dependency.getChecksums()) {
-                if (!DataProcessor.verifyChecksum(checksum, baos.toByteArray())) {
+                if (!DataProcessor.verifyChecksum(checksum, artifactBytes)) {
                     throw new IOException(checksum.getAlgo().name() + " checksum mismatch");
                 }
             }
@@ -398,7 +392,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             for (CompletableFuture<ArtifactChecksum> future : futures) {
                 if ((artifactChecksum = future.getNow(null)) != null) {
                     logger.trace("{} repository {} checksum is {}", dependency, artifactChecksum.getAlgo().name(), artifactChecksum.getChecksum());
-                    if (!DataProcessor.verifyChecksum(artifactChecksum, baos.toByteArray())) {
+                    if (!DataProcessor.verifyChecksum(artifactChecksum, artifactBytes)) {
                         throw new IOException(artifactChecksum.getAlgo().name() + " checksum mismatch");
                     }
                     checksumVerified = true;
@@ -411,7 +405,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         }
 
         // Copy
-        Files.copy(new ByteArrayInputStream(baos.toByteArray()), tempTarget, StandardCopyOption.REPLACE_EXISTING);
+        Files.write(tempTarget, artifactBytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
 
         // Atomic replace
         Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
@@ -429,6 +423,17 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             return parent.getVersion();
         }
         return identifier;
+    }
+
+    private static byte[] readBytes(@NonNull InputStream is) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[4096];
+        int b;
+        while ((b = is.read(buf, 0, buf.length)) != -1) {
+            baos.write(buf, 0, b);
+        }
+
+        return baos.toByteArray();
     }
 
     private static class TransitiveDependencyNotFoundException extends Exception {
