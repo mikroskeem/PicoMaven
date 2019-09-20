@@ -254,7 +254,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         if ((model = DataProcessor.getPom(artifactPomUrl)) != null) {
             // Write model to disk
             if (pomPath != null) {
-                Path pomPathTemp = Paths.get(pomPath.toAbsolutePath().toString() + ".tmp");
+                Path pomPathTemp = pomPath.resolveSibling(pomPath.getFileName() + ".tmp");
                 Files.createDirectories(pomPath.getParent());
                 try (BufferedWriter w = Files.newBufferedWriter(pomPathTemp, StandardOpenOption.WRITE, StandardOpenOption.CREATE)) {
                     DataProcessor.serializeModel(model, w, true);
@@ -367,7 +367,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
     private void downloadArtifact(@NonNull Dependency dependency, @NonNull URL artifactUrl,
                                   @NonNull Path target, @NonNull InputStream is) throws IOException {
-        Path tempTarget = Paths.get(target.toAbsolutePath().toString() + ".tmp");
+        Path tempTarget = target.resolveSibling(target.getFileName() + ".tmp");
         Path parentPath = target.getParent();
         if (!Files.exists(parentPath)) {
             Files.createDirectories(parentPath);
