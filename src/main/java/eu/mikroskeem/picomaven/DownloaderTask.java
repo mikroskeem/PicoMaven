@@ -45,8 +45,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -150,6 +152,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                         try {
                             logger.trace("{} direct artifact POM URL: {}", dependency, artifactPomUrl);
                             transitive = downloadTransitive(artifactPomDownloadPath, artifactPomUrl);
+                        } catch (SocketTimeoutException | UnknownHostException e) {
+                            logger.warn("Connection to {} failed", repository, e);
+                            continue;
                         } catch (FileNotFoundException e) {
                             logger.trace("{} direct artifact POM not found", dependency);
                         } catch (IOException e) {
@@ -164,6 +169,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                         UrlUtils.ensureSuccessfulRequest(connection);
                         downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
                         return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
+                    } catch (SocketTimeoutException | UnknownHostException e) {
+                        logger.warn("Connection to {} failed", repository, e);
+                        continue;
                     } catch (IOException e) {
                         // Non-fatal error, continue
                         logger.trace("{} direct artifact URL {} did not work, trying to fetch XML", dependency, artifactUrl);
@@ -181,6 +189,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     } else {
                         throw new FileNotFoundException();
                     }
+                } catch (SocketTimeoutException | UnknownHostException e) {
+                    logger.warn("Connection to {} failed", repository, e);
+                    continue;
                 } catch (FileNotFoundException e) {
                     logger.debug("{} not found in repository {}", dependency, repository);
                     continue;
@@ -211,6 +222,9 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             try {
                 logger.trace("Downloading {} POM from {}", dependency, artifactPomUrl);
                 dependencyTransitiveDownloads = downloadTransitive(artifactPomDownloadPath, artifactPomUrl);
+            } catch (SocketTimeoutException | UnknownHostException e) {
+                logger.warn("Connection to {} failed", repository, e);
+                return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
             } catch (FileNotFoundException e) {
                 logger.trace("{} POM not found", dependency);
             } catch (IOException e) {
