@@ -111,8 +111,9 @@ public final class UrlUtils {
 
             // Authentication
             if (url.getUserInfo() != null) {
-                String auth = "Basic " + Base64.getEncoder().encodeToString(url.getUserInfo().getBytes(StandardCharsets.UTF_8));
-                connection.setRequestProperty("Authorization", auth);
+                byte[] encodedBytes = Base64.getEncoder().encode(url.getUserInfo().getBytes(StandardCharsets.UTF_8));
+                String encoded = new String(encodedBytes, StandardCharsets.UTF_8);
+                connection.setRequestProperty("Authorization", "Basic " + encoded);
             }
         }
         connection.setUseCaches(false);
