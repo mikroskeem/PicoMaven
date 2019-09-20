@@ -75,6 +75,12 @@ val shadowJar by tasks.getting(ShadowJar::class) {
     relocations.forEach {
         relocate(it, "$targetPackage.$it")
     }
+
+    minimize {
+        dependency("org.apache.maven:maven-model")
+        dependency("org.apache.maven:maven-repository-metadata")
+        dependency("org.codehaus.plexus:plexus-utils")
+    }
 }
 
 val test by tasks.getting(Test::class) {
