@@ -25,7 +25,7 @@
 
 package eu.mikroskeem.picomaven;
 
-import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
+import eu.mikroskeem.picomaven.artifact.ArtifactChecksums;
 import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
@@ -43,7 +43,7 @@ import java.net.URL;
 public class UrlUtilsTest {
     public static final URI DEFAULT_REPOSITORY = URI.create("https://repo.maven.apache.org/maven2");
     public static final URI DEFAULT_REPOSITORY2 = URI.create("https://repo.spongepowered.org/maven");
-    public static final Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2", ArtifactChecksum.sha1HexSumOf("2ea49e08b876bbd33e0a7ce75c8f371d29e1f10a"));
+    public static final Dependency SAMPLE_DEPENDENCY = new Dependency("org.ow2.asm", "asm-all", "5.2", ArtifactChecksums.sha1HexSumOf("2ea49e08b876bbd33e0a7ce75c8f371d29e1f10a"));
     public static final Dependency SAMPLE_DEPENDENCY2 = new Dependency("org.spongepowered", "mixin", "0.6.8-SNAPSHOT");
     public static final String SAMPLE_METADATA =
             "<metadata>\n" +

@@ -108,41 +108,6 @@ public final class ArtifactChecksum {
         return Objects.hash(algo, encoding, checksum);
     }
 
-    @NonNull
-    public static ArtifactChecksum of(@NonNull ChecksumAlgo type, @NonNull ChecksumEncoding encoding, @NonNull String checksum) {
-        return new ArtifactChecksum(type, encoding, checksum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum sha1HexSumOf(@NonNull String sha1sum) {
-        return new ArtifactChecksum(ChecksumAlgo.SHA1, ChecksumEncoding.HEX, sha1sum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum sha256HexSumOf(@NonNull String sha256sum) {
-        return new ArtifactChecksum(ChecksumAlgo.SHA256, ChecksumEncoding.HEX, sha256sum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum md5HexSumOf(@NonNull String md5sum) {
-        return new ArtifactChecksum(ChecksumAlgo.MD5, ChecksumEncoding.HEX,md5sum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum sha1Base64SumOf(@NonNull String sha1sum) {
-        return new ArtifactChecksum(ChecksumAlgo.SHA1, ChecksumEncoding.BASE64, sha1sum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum sha256Base64SumOf(@NonNull String sha256sum) {
-        return new ArtifactChecksum(ChecksumAlgo.SHA256, ChecksumEncoding.BASE64, sha256sum);
-    }
-
-    @NonNull
-    public static ArtifactChecksum md5Base64SumOf(@NonNull String md5sum) {
-        return new ArtifactChecksum(ChecksumAlgo.MD5, ChecksumEncoding.BASE64, md5sum);
-    }
-
     /**
      * Supported checksum types
      */
