@@ -48,9 +48,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -222,15 +220,7 @@ public class PicoMaven implements Closeable {
             if (dependencies == null) dependencies = Collections.emptyList();
             if (repositories == null) repositories = Collections.emptyList();
             if (executorService == null) {
-                executorService = Executors.newCachedThreadPool(new ThreadFactory() {
-                    private final AtomicInteger THREAD_COUNTER = new AtomicInteger(0);
-                    @Override
-                    public Thread newThread(@NonNull Runnable runnable) {
-                        Thread thread = new Thread(runnable);
-                        thread.setName("PicoMaven downloader thread " + THREAD_COUNTER.getAndIncrement());
-                        return thread;
-                    }
-                });
+                executorService = Executors.newCachedThreadPool();
                 shouldCloseExecutorService = true;
             }
             if (dependencyProcessors == null) dependencyProcessors = Collections.emptyList();
