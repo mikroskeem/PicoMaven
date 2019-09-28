@@ -26,10 +26,13 @@
 package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
+import eu.mikroskeem.picomaven.artifact.ArtifactChecksum.ChecksumAlgo;
 import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.artifact.TransitiveDependencyProcessor;
 import eu.mikroskeem.picomaven.internal.DataProcessor;
+import eu.mikroskeem.picomaven.internal.FileUtils;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
+import eu.mikroskeem.picomaven.internal.StreamUtils;
 import eu.mikroskeem.picomaven.internal.TaskUtils;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
@@ -41,7 +44,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.BufferedWriter;
-import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -343,57 +345,56 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
 
     private void downloadArtifact(@NonNull Dependency dependency, @NonNull URL artifactUrl,
                                   @NonNull Path target, @NonNull InputStream is) throws IOException {
-        Path tempTarget = target.resolveSibling(target.getFileName() + ".tmp");
-        Path parentPath = target.getParent();
-        if (!Files.exists(parentPath)) {
-            Files.createDirectories(parentPath);
-        }
-
         // Copy artifact into memory
-        byte[] artifactBytes = readBytes(is);
+        final byte[] artifactBytes = StreamUtils.readBytes(is);
 
         // Check specified checksums
+        List<CompletableFuture<Boolean>> checksumFutures;
         if (!dependency.getChecksums().isEmpty()) {
             logger.trace("{} has checksums set, using them to check consistency", dependency);
+            checksumFutures = new ArrayList<>(dependency.getChecksums().size());
             for (ArtifactChecksum checksum : dependency.getChecksums()) {
-                if (!DataProcessor.verifyChecksum(checksum, artifactBytes)) {
-                    throw new IOException(checksum.getAlgo().name() + " checksum mismatch");
-                }
+                checksumFutures.add(CompletableFuture.supplyAsync(
+                        () -> DataProcessor.verifyChecksum(checksum, artifactBytes),
+                        this.executorService
+                ));
             }
         } else {
-            // Attempt to fetch remote checksums
-            logger.trace("{} does not have any checksums, fetching them from remote repository", dependency);
-            List<CompletableFuture<ArtifactChecksum>> futures = new ArrayList<>(REMOTE_CHECKSUM_ALGOS.length);
-            for (ArtifactChecksum.ChecksumAlgo remoteChecksumAlgo : REMOTE_CHECKSUM_ALGOS) {
-                futures.add(DataProcessor.getArtifactChecksum(executorService, artifactUrl, remoteChecksumAlgo));
-            }
-
-            // Wait for both checksum queries to finish
-            ArtifactChecksum artifactChecksum;
-            boolean checksumVerified = false;
-            TaskUtils.waitForAllUninterruptibly(futures);
-
-            // Verify checksums
-            for (CompletableFuture<ArtifactChecksum> future : futures) {
-                if ((artifactChecksum = future.getNow(null)) != null) {
-                    logger.trace("{} repository {} checksum is {}", dependency, artifactChecksum.getAlgo().name(), artifactChecksum.getChecksum());
-                    if (!DataProcessor.verifyChecksum(artifactChecksum, artifactBytes)) {
-                        throw new IOException(artifactChecksum.getAlgo().name() + " checksum mismatch");
+            // Attempt to fetch remote checksums and verify them
+            logger.trace("{} does not have any checksums defined locally, fetching them from remote repository", dependency);
+            checksumFutures = new ArrayList<>(REMOTE_CHECKSUM_ALGOS.length);
+            for (ChecksumAlgo remoteChecksumAlgo : REMOTE_CHECKSUM_ALGOS) {
+                checksumFutures.add(DataProcessor.getArtifactChecksum(executorService, artifactUrl, remoteChecksumAlgo).thenApply(checksum -> {
+                    if (checksum != null) {
+                        logger.trace("{} repository {} checksum is {}", dependency, checksum.getAlgo().name(), checksum.getChecksum());
+                        return DataProcessor.verifyChecksum(checksum, artifactBytes);
                     }
-                    checksumVerified = true;
-                }
+                    return null;
+                }));
             }
+        }
 
-            if (!checksumVerified) {
-                logger.debug("{}'s {} checksums weren't available remotely", dependency, REMOTE_CHECKSUM_ALGOS);
+        // Wait for checksum queries to finish
+        boolean checksumVerified = false;
+        TaskUtils.waitForAllUninterruptibly(checksumFutures);
+
+        // Verify checksums
+        for (CompletableFuture<Boolean> future : checksumFutures) {
+            Boolean artifactChecksumResult;
+            if ((artifactChecksumResult = future.getNow(null)) != null) {
+                if (!artifactChecksumResult) {
+                    throw new IOException("Checksum mismatch");
+                }
+                checksumVerified = true;
             }
+        }
+
+        if (!checksumVerified) {
+            logger.debug("{}'s {} checksums weren't available remotely", dependency, REMOTE_CHECKSUM_ALGOS);
         }
 
         // Copy
-        Files.write(tempTarget, artifactBytes, StandardOpenOption.CREATE, StandardOpenOption.WRITE);
-
-        // Atomic replace
-        Files.move(tempTarget, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        FileUtils.writeAtomicReplace(target, artifactBytes);
 
         // Download success!
         logger.debug("{} download succeeded!", dependency);
@@ -408,17 +409,6 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
             return parent.getVersion();
         }
         return identifier;
-    }
-
-    private static byte[] readBytes(@NonNull InputStream is) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        byte[] buf = new byte[4096];
-        int b;
-        while ((b = is.read(buf, 0, buf.length)) != -1) {
-            baos.write(buf, 0, b);
-        }
-
-        return baos.toByteArray();
     }
 
     private static class TransitiveDependencyNotFoundException extends Exception {
