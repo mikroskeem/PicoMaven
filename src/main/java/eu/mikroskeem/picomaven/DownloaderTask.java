@@ -212,7 +212,6 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
                 logger.warn("Failed to download {} POM: {}", dependency, e.getMessage());
             }
         }
-        TaskUtils.waitForAllUninterruptibly(this.transitiveDownloads);
 
         logger.trace("Downloading {} from {}", dependency, artifactUrl);
         URLConnection connection = UrlUtils.openConnection(artifactUrl);
