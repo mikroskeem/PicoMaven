@@ -310,19 +310,13 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             }
 
             // Wait until all futures are done
-            while (true) {
-                try {
-                    for (Future<DownloadResult> downloadResultFuture : transitive) {
-                        downloadResultFuture.get();
-                    }
-                    break;
-                } catch (ExecutionException e) {
-                    SneakyThrow.rethrow(e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+            try {
+                CompletableFuture.allOf(transitive.stream().map(DownloaderTask::wrapFuture).toArray(CompletableFuture[]::new)).get();
+            } catch (ExecutionException e) {
+                SneakyThrow.rethrow(e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
-
             logger.trace("{} transitive dependencies download finished", dependency);
 
             // Collect download results
@@ -375,17 +369,12 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             // Wait for both checksum queries to finish
             ArtifactChecksum artifactChecksum;
             boolean checksumVerified = false;
-            while (true) {
-                try {
-                    for (CompletableFuture<?> future : futures) {
-                        future.get();
-                    }
-                    break;
-                } catch (ExecutionException e) {
-                    SneakyThrow.rethrow(e);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                }
+            try {
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
+            } catch (ExecutionException e) {
+                SneakyThrow.rethrow(e);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
 
             // Verify checksums
@@ -438,5 +427,14 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
     private static class TransitiveDependencyNotFoundException extends Exception {
 
+    }
+
+    // Seriously Java?
+    private static <T> CompletableFuture<T> wrapFuture(Future<T> future) {
+        if (future instanceof CompletableFuture) {
+            return (CompletableFuture<T>) future;
+        }
+
+        return CompletableFuture.supplyAsync(() -> SneakyThrow.get(future::get));
     }
 }
