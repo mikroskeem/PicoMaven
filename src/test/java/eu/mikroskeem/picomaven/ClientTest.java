@@ -27,7 +27,7 @@ package eu.mikroskeem.picomaven;
 
 import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.internal.DataProcessor;
-import eu.mikroskeem.picomaven.internal.SneakyThrow;
+import eu.mikroskeem.picomaven.internal.TaskUtils;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +39,7 @@ import java.net.URL;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Mark Vainomaa
@@ -76,24 +76,22 @@ public class ClientTest {
                 ))
                 .build()
         ) {
-            Map<Dependency, Future<DownloadResult>> downloads = picoMaven.downloadAllArtifacts();
+            Map<Dependency, CompletableFuture<DownloadResult>> downloads = picoMaven.downloadAllArtifacts();
+            try {
+                TaskUtils.waitForAllUninterruptibly(downloads.values());
+            } catch (Exception e) {
+                // This is here because I am lazy - I could run Gradle with --stacktrace but nyeehhh
+                e.printStackTrace();
+                throw e;
+            }
+
             int downloaded = 0;
-            for (Future<DownloadResult> value : downloads.values()) {
-                while (true) {
-                    try {
-                        DownloadResult res = value.get();
-                        if (res.isSuccess()) {
-                            downloaded++;
-                        } else {
-                            System.err.println(res);
-                        }
-                        break;
-                    } catch (InterruptedException ignored) {
-                    } catch (Exception e) {
-                        // This is here because I am lazy - I could run Gradle with --stacktrace but nyeehhh
-                        e.printStackTrace();
-                        SneakyThrow.rethrow(e);
-                    }
+            for (CompletableFuture<DownloadResult> value : downloads.values()) {
+                DownloadResult res = value.getNow(null);
+                if (res.isSuccess()) {
+                    downloaded++;
+                } else {
+                    System.err.println(res);
                 }
             }
 

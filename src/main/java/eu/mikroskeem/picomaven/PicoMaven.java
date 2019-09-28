@@ -29,6 +29,7 @@ import eu.mikroskeem.picomaven.artifact.ArtifactChecksum;
 import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.artifact.TransitiveDependencyProcessor;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
+import eu.mikroskeem.picomaven.internal.TaskUtils;
 import org.checkerframework.checker.nullness.qual.NonNull;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.slf4j.Logger;
@@ -39,15 +40,14 @@ import java.net.URI;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -58,10 +58,10 @@ import java.util.stream.Collectors;
  */
 public class PicoMaven implements Closeable {
     private static final Logger logger = LoggerFactory.getLogger(PicoMaven.class);
-    static final List<ArtifactChecksum.ChecksumAlgo> REMOTE_CHECKSUM_ALGOS = Arrays.asList(
+    static final ArtifactChecksum.ChecksumAlgo[] REMOTE_CHECKSUM_ALGOS = new ArtifactChecksum.ChecksumAlgo[]{
             ArtifactChecksum.ChecksumAlgo.MD5,
             ArtifactChecksum.ChecksumAlgo.SHA1
-    );
+    };
 
     private final Path downloadPath;
     private final List<Dependency> dependencyList;
@@ -69,22 +69,26 @@ public class PicoMaven implements Closeable {
     private final ExecutorService executorService;
     private final boolean shouldCloseExecutorService;
     private final List<TransitiveDependencyProcessor> transitiveDependencyProcessors;
+    private final List<CompletableFuture<DownloadResult>> downloadTasks;
 
-    public Map<@NonNull Dependency, @NonNull Future<@Nullable DownloadResult>> downloadAllArtifacts() {
-        Map<Dependency, Future<DownloadResult>> tasks = new LinkedHashMap<>(dependencyList.size());
+    public Map<@NonNull Dependency, @NonNull CompletableFuture<@Nullable DownloadResult>> downloadAllArtifacts() {
+        Map<Dependency, CompletableFuture<DownloadResult>> tasks = new LinkedHashMap<>(dependencyList.size());
         for (final Dependency dependency : dependencyList) {
             DownloaderTask task = new DownloaderTask(executorService, dependency, downloadPath, repositoryUrls, transitiveDependencyProcessors);
-            tasks.put(dependency, executorService.submit(task));
+            CompletableFuture<DownloadResult> future = CompletableFuture.supplyAsync(task, executorService);
+            tasks.put(dependency, future);
+            this.downloadTasks.add(future);
         }
 
         return Collections.unmodifiableMap(tasks);
     }
 
     /**
-     * Shuts down {@link ExecutorService}, if configured
+     * Waits until all downloads are completed and shuts down {@link ExecutorService} if configured to do so
      */
     @Override
     public void close() {
+        TaskUtils.waitForAllUninterruptibly(this.downloadTasks);
         if (shouldCloseExecutorService) {
             executorService.shutdown();
             try {
@@ -104,6 +108,7 @@ public class PicoMaven implements Closeable {
         this.executorService = executorService;
         this.shouldCloseExecutorService = shouldCloseExecutorService;
         this.transitiveDependencyProcessors = dependencyProcessors;
+        this.downloadTasks = new ArrayList<>(this.dependencyList.size());
     }
 
     /**

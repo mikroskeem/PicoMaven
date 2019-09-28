@@ -30,6 +30,7 @@ import eu.mikroskeem.picomaven.artifact.Dependency;
 import eu.mikroskeem.picomaven.artifact.TransitiveDependencyProcessor;
 import eu.mikroskeem.picomaven.internal.DataProcessor;
 import eu.mikroskeem.picomaven.internal.SneakyThrow;
+import eu.mikroskeem.picomaven.internal.TaskUtils;
 import eu.mikroskeem.picomaven.internal.UrlUtils;
 import org.apache.maven.artifact.repository.metadata.Metadata;
 import org.apache.maven.model.Model;
@@ -60,19 +61,18 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.function.Supplier;
 
 import static eu.mikroskeem.picomaven.PicoMaven.REMOTE_CHECKSUM_ALGOS;
 
 /**
  * @author Mark Vainomaa
  */
-public final class DownloaderTask implements Callable<DownloadResult> {
+public final class DownloaderTask implements Supplier<DownloadResult> {
     private static final Logger logger = LoggerFactory.getLogger(DownloaderTask.class);
 
     private final ExecutorService executorService;
@@ -82,7 +82,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     private final boolean optional;
     private final Set<URL> repositoryUrls;
     private final List<TransitiveDependencyProcessor> transitiveDependencyProcessors;
-    private final Deque<Future<DownloadResult>> transitiveDownloads;
+    private final Deque<CompletableFuture<DownloadResult>> transitiveDownloads;
 
     private final boolean isChild;
 
@@ -95,7 +95,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     }
 
     private DownloaderTask(ExecutorService executorService, Dependency dependency, Path downloadPath,
-                           Set<URL> repositoryUrls, boolean optional, Deque<Future<DownloadResult>> transitiveDownloads,
+                           Set<URL> repositoryUrls, boolean optional, Deque<CompletableFuture<DownloadResult>> transitiveDownloads,
                            List<TransitiveDependencyProcessor> dependencyProcessors, boolean isChild) {
         this.executorService = executorService;
         this.dependency = dependency;
@@ -113,7 +113,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
     }
 
     @Override
-    public DownloadResult call() throws Exception {
+    public DownloadResult get() {
         logger.trace("Trying to download dependency {}", dependency);
         Path artifactPomDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "pom");
         Path artifactDownloadPath = UrlUtils.formatLocalPath(downloadPath, dependency, "jar");
@@ -147,7 +147,8 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     try {
                         DownloadResult result = downloadDependency(repository, artifactPomUrl, artifactUrl, transitive);
                         if (!result.isSuccess() && result.getDownloadException() != null) {
-                            throw result.getDownloadException();
+                            SneakyThrow.rethrow(result.getDownloadException());
+                            throw null;
                         }
                         return result;
                     } catch (SocketTimeoutException | UnknownHostException e) {
@@ -211,6 +212,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                 logger.warn("Failed to download {} POM: {}", dependency, e.getMessage());
             }
         }
+        TaskUtils.waitForAllUninterruptibly(this.transitiveDownloads);
 
         logger.trace("Downloading {} from {}", dependency, artifactUrl);
         URLConnection connection = UrlUtils.openConnection(artifactUrl);
@@ -229,7 +231,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
     @NonNull
     private List<DownloadResult> downloadTransitive(@Nullable Path pomPath, @NonNull URL artifactPomUrl) throws IOException {
-        List<Future<DownloadResult>> transitive = Collections.emptyList();
+        List<CompletableFuture<DownloadResult>> transitive = Collections.emptyList();
         Model model;
         if ((model = DataProcessor.getPom(artifactPomUrl)) != null) {
             // Write model to disk
@@ -303,20 +305,14 @@ public final class DownloaderTask implements Callable<DownloadResult> {
                     logger.debug("{} requires transitive dependency {}", dependency, transitiveDependency);
 
                     DownloaderTask task = new DownloaderTask(this, transitiveDependency, dep.isOptional());
-                    Future<DownloadResult> future = executorService.submit(task);
+                    CompletableFuture<DownloadResult> future = CompletableFuture.supplyAsync(task, executorService);
                     transitiveDownloads.add(future);
                     transitive.add(future);
                 }
             }
 
             // Wait until all futures are done
-            try {
-                CompletableFuture.allOf(transitive.stream().map(DownloaderTask::wrapFuture).toArray(CompletableFuture[]::new)).get();
-            } catch (ExecutionException e) {
-                SneakyThrow.rethrow(e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            TaskUtils.waitForAllFuturesUninterruptibly(transitive);
             logger.trace("{} transitive dependencies download finished", dependency);
 
             // Collect download results
@@ -361,7 +357,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
         } else {
             // Attempt to fetch remote checksums
             logger.trace("{} does not have any checksums, fetching them from remote repository", dependency);
-            List<CompletableFuture<ArtifactChecksum>> futures = new ArrayList<>(REMOTE_CHECKSUM_ALGOS.size());
+            List<CompletableFuture<ArtifactChecksum>> futures = new ArrayList<>(REMOTE_CHECKSUM_ALGOS.length);
             for (ArtifactChecksum.ChecksumAlgo remoteChecksumAlgo : REMOTE_CHECKSUM_ALGOS) {
                 futures.add(DataProcessor.getArtifactChecksum(executorService, artifactUrl, remoteChecksumAlgo));
             }
@@ -369,13 +365,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             // Wait for both checksum queries to finish
             ArtifactChecksum artifactChecksum;
             boolean checksumVerified = false;
-            try {
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).get();
-            } catch (ExecutionException e) {
-                SneakyThrow.rethrow(e);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
+            TaskUtils.waitForAllUninterruptibly(futures);
 
             // Verify checksums
             for (CompletableFuture<ArtifactChecksum> future : futures) {
@@ -389,7 +379,7 @@ public final class DownloaderTask implements Callable<DownloadResult> {
             }
 
             if (!checksumVerified) {
-                logger.debug("{}'s {} checksums weren't available remotely", REMOTE_CHECKSUM_ALGOS, dependency);
+                logger.debug("{}'s {} checksums weren't available remotely", dependency, REMOTE_CHECKSUM_ALGOS);
             }
         }
 
@@ -427,14 +417,5 @@ public final class DownloaderTask implements Callable<DownloadResult> {
 
     private static class TransitiveDependencyNotFoundException extends Exception {
 
-    }
-
-    // Seriously Java?
-    private static <T> CompletableFuture<T> wrapFuture(Future<T> future) {
-        if (future instanceof CompletableFuture) {
-            return (CompletableFuture<T>) future;
-        }
-
-        return CompletableFuture.supplyAsync(() -> SneakyThrow.get(future::get));
     }
 }
