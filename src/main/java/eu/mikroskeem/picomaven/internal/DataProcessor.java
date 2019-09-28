@@ -59,7 +59,7 @@ public final class DataProcessor {
     @Nullable
     public static Metadata getMetadata(@NonNull URL url) throws IOException {
         try (InputStream is = UrlUtils.openConnection(url).getInputStream()) {
-            return new MetadataXpp3Reader().read(is);
+            return new MetadataXpp3Reader().read(is, false);
         } catch (FileNotFoundException e) {
             return null;
         } catch (XmlPullParserException e) {
@@ -70,7 +70,7 @@ public final class DataProcessor {
     @Nullable
     public static Model getPom(@NonNull URL url) throws IOException {
         try (InputStream is = UrlUtils.openConnection(url).getInputStream()) {
-            return new MavenXpp3Reader().read(is);
+            return new MavenXpp3Reader().read(is, false);
         } catch (FileNotFoundException e) {
             return null;
         } catch (XmlPullParserException e) {
