@@ -44,7 +44,6 @@ import java.io.InputStreamReader;
 import java.io.Writer;
 import java.net.SocketTimeoutException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.util.concurrent.CompletableFuture;
@@ -108,8 +107,7 @@ public final class DataProcessor {
         final URL url = UrlUtils.createURL(artifactUrl.toString() + "." + cst.getExt());
 
         return CompletableFuture.supplyAsync(() -> {
-            URLConnection connection = SneakyThrow.get(() -> UrlUtils.openConnection(url));
-            try (BufferedReader is = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
+            try (BufferedReader is = new BufferedReader(new InputStreamReader(UrlUtils.openConnection(url).getInputStream()))) {
                 String response = is.lines().collect(Collectors.joining("\n"));
                 String[] parts = response.split("\\s", 2); // Checksum could be in '<checksum> <filename>' format, e.g what GNU coreutils output.
                 String checksum = parts.length == 2 ? parts[0] : response;
