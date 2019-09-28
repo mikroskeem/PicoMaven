@@ -54,6 +54,8 @@ import java.util.stream.Collectors;
  * @author Mark Vainomaa
  */
 public final class DataProcessor {
+    private DataProcessor() {}
+
     @Nullable
     public static Metadata getMetadata(@NonNull URL url) throws IOException {
         URLConnection connection = UrlUtils.openConnection(url);

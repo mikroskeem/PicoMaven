@@ -36,6 +36,8 @@ import java.util.concurrent.Future;
  * @author Mark Vainomaa
  */
 public final class TaskUtils {
+    private TaskUtils() {}
+
     // Seriously Java?
     public static <T> CompletableFuture<T> wrapFuture(Future<T> future) {
         if (future instanceof CompletableFuture) {

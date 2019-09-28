@@ -34,6 +34,8 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * @author Mark Vainomaa
  */
 public final class SneakyThrow {
+    private SneakyThrow() {}
+
     @SuppressWarnings("unchecked")
     public static <T extends Throwable> void rethrow(@Nullable Throwable t) throws T {
         throw (T) t;

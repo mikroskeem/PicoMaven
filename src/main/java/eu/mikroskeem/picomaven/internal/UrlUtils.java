@@ -44,6 +44,8 @@ import java.util.Objects;
  * @author Mark Vainomaa
  */
 public final class UrlUtils {
+    private UrlUtils() {}
+
     private static final String USER_AGENT = "PicoMaven/__PICOMAVEN_VERSION__";
 
     @NonNull
