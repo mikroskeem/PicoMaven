@@ -44,6 +44,8 @@ import java.util.Objects;
  * @author Mark Vainomaa
  */
 public final class UrlUtils {
+    private static final String USER_AGENT = "PicoMaven/__PICOMAVEN_VERSION__";
+
     @NonNull
     public static URL buildGroupMetaURL(@NonNull URL repository, @NonNull Dependency dependency) {
         return createURL(String.format("%s/%s/%s/maven-metadata.xml",
@@ -106,7 +108,7 @@ public final class UrlUtils {
         URLConnection connection = url.openConnection();
         if (connection instanceof HttpURLConnection) {
             HttpURLConnection httpConnection = (HttpURLConnection) connection;
-            connection.setRequestProperty("User-Agent", "PicoMaven/__PICOMAVEN_VERSION__");
+            connection.setRequestProperty("User-Agent", USER_AGENT);
             httpConnection.setInstanceFollowRedirects(true);
 
             // Authentication
