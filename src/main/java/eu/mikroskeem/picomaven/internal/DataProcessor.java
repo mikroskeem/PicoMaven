@@ -58,9 +58,7 @@ public final class DataProcessor {
 
     @Nullable
     public static Metadata getMetadata(@NonNull URL url) throws IOException {
-        URLConnection connection = UrlUtils.openConnection(url);
-        try (InputStream is = connection.getInputStream()) {
-            UrlUtils.ensureSuccessfulRequest(connection);
+        try (InputStream is = UrlUtils.openConnection(url).getInputStream()) {
             return new MetadataXpp3Reader().read(is);
         } catch (FileNotFoundException e) {
             return null;
@@ -71,9 +69,7 @@ public final class DataProcessor {
 
     @Nullable
     public static Model getPom(@NonNull URL url) throws IOException {
-        URLConnection connection = UrlUtils.openConnection(url);
-        try (InputStream is = connection.getInputStream()) {
-            UrlUtils.ensureSuccessfulRequest(connection);
+        try (InputStream is = UrlUtils.openConnection(url).getInputStream()) {
             return new MavenXpp3Reader().read(is);
         } catch (FileNotFoundException e) {
             return null;
@@ -107,12 +103,11 @@ public final class DataProcessor {
     public static CompletableFuture<@Nullable ArtifactChecksum> getArtifactChecksum(@NonNull Executor executor,
                                                                                     @NonNull URL artifactUrl,
                                                                                     ArtifactChecksum.ChecksumAlgo cst) {
-        final URL url = SneakyThrow.get(() -> new URL(artifactUrl.toString() + "." + cst.getExt()));
+        final URL url = UrlUtils.createURL(artifactUrl.toString() + "." + cst.getExt());
 
         return CompletableFuture.supplyAsync(() -> {
             URLConnection connection = SneakyThrow.get(() -> UrlUtils.openConnection(url));
             try (BufferedReader is = new BufferedReader(new InputStreamReader(connection.getInputStream()))) {
-                UrlUtils.ensureSuccessfulRequest(connection);
                 String response = is.lines().collect(Collectors.joining("\n"));
                 String[] parts = response.split("\\s", 2); // Checksum could be in '<checksum> <filename>' format, e.g what GNU coreutils output.
                 String checksum = parts.length == 2 ? parts[0] : response;

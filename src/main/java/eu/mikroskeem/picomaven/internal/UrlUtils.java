@@ -123,10 +123,6 @@ public final class UrlUtils {
         connection.setUseCaches(false);
         connection.setDoInput(true);
 
-        return connection;
-    }
-
-    public static void ensureSuccessfulRequest(@NonNull URLConnection connection) throws IOException {
         if (connection instanceof HttpURLConnection) {
             HttpURLConnection httpConnection = (HttpURLConnection) connection;
             if (httpConnection.getResponseCode() != 200) { // SUCCESS
@@ -135,6 +131,7 @@ public final class UrlUtils {
         }
 
         // Probably it is *shrug*
+        return connection;
     }
 
     @NonNull
@@ -164,7 +161,7 @@ public final class UrlUtils {
     }
 
     @NonNull
-    private static URL createURL(@NonNull String raw) {
+    public static URL createURL(@NonNull String raw) {
         return SneakyThrow.get(() -> new URL(raw));
     }
 }

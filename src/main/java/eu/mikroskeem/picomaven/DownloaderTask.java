@@ -45,9 +45,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.SocketTimeoutException;
 import java.net.URL;
-import java.net.URLConnection;
 import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -214,9 +214,7 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
         }
 
         logger.trace("Downloading {} from {}", dependency, artifactUrl);
-        URLConnection connection = UrlUtils.openConnection(artifactUrl);
-        try (InputStream is = connection.getInputStream()) {
-            UrlUtils.ensureSuccessfulRequest(connection);
+        try (InputStream is = UrlUtils.openConnection(artifactUrl).getInputStream()) {
             downloadArtifact(dependency, artifactUrl, artifactDownloadPath, is);
             return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
         } catch (FileNotFoundException e) {
@@ -249,9 +247,18 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
                 // Add all repositories from transitive POM
                 if (!model.getRepositories().isEmpty()) {
                     for (Repository repository : model.getRepositories()) {
-                        URL url = SneakyThrow.get(() -> new URL(repository.getUrl()));
-                        logger.debug("Adding new repository URL {}", url);
-                        repositoryUrls.add(url);
+                        try {
+                            URL url = new URL(repository.getUrl());
+                            logger.debug("Adding new repository URL {}", url);
+                            repositoryUrls.add(url);
+                        } catch (MalformedURLException e) {
+                            logger.warn(
+                                    "URL '{}' referenced by dependency {}:{}:{} is invalid",
+                                    repository.getUrl(),
+                                    model.getGroupId(), model.getArtifactId(), model.getVersion(),
+                                    e
+                            );
+                        }
                     }
                 }
 
