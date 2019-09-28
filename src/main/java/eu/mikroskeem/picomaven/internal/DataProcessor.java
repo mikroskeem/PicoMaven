@@ -42,8 +42,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Writer;
+import java.net.SocketTimeoutException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.net.UnknownHostException;
 import java.security.MessageDigest;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -112,6 +114,8 @@ public final class DataProcessor {
                 String[] parts = response.split("\\s", 2); // Checksum could be in '<checksum> <filename>' format, e.g what GNU coreutils output.
                 String checksum = parts.length == 2 ? parts[0] : response;
                 return new ArtifactChecksum(cst, ArtifactChecksum.ChecksumEncoding.HEX, checksum);
+            } catch (SocketTimeoutException | UnknownHostException e) {
+                return null;
             } catch (FileNotFoundException e) {
                 return null;
             } catch (IOException e) {
