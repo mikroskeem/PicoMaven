@@ -126,7 +126,7 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
             if (Files.exists(artifactDownloadPath)) {
                 logger.debug("{} is already downloaded", dependency);
 
-                if (Files.exists(artifactPomDownloadPath) && dependency.isTransitive()) {
+                if (dependency.isTransitive() && Files.exists(artifactPomDownloadPath)) {
                     transitive.addAll(downloadTransitive(null, artifactPomDownloadPath.toUri().toURL()));
                 }
                 return DownloadResult.ofSuccess(dependency, artifactDownloadPath, optional, transitive);
