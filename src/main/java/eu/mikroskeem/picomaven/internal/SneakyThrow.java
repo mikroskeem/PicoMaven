@@ -47,7 +47,7 @@ public final class SneakyThrow {
         } catch (Throwable t) {
             rethrow(t);
         }
-        return null;
+        throw null;
     }
 
     public interface ThrowingSupplier<T, E extends Throwable> {
