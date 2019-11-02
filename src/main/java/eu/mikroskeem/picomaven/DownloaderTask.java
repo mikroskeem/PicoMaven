@@ -223,7 +223,7 @@ public final class DownloaderTask implements Supplier<DownloadResult> {
             logger.debug("{} not found in repository {}", dependency, repository);
             return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
         } catch (IOException e) {
-            logger.debug("{} download failed!", dependency);
+            logger.debug("{} download failed: {}", dependency, e);
             return DownloadResult.ofFailure(dependency, artifactDownloadPath, optional, e);
         }
     }
